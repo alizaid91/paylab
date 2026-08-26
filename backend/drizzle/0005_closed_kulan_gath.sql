@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "executions_strategy_unique" ON "executions" USING btree ("merchant_id","strategy_id");

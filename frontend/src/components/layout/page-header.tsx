@@ -1,0 +1,3 @@
+export function PageHeader({ eyebrow, title, description, actions }: Readonly<{ eyebrow?: string; title: string; description?: string; actions?: React.ReactNode }>) {
+  return <div className="flex flex-col justify-between gap-4 border-b pb-6 sm:flex-row sm:items-end"><div>{eyebrow && <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-accent">{eyebrow}</p>}<h1 className="text-2xl font-semibold tracking-tight">{title}</h1>{description && <p className="mt-1.5 text-sm text-muted-foreground">{description}</p>}</div>{actions && <div className="flex items-center gap-2">{actions}</div>}</div>;
+}
