@@ -9,9 +9,10 @@
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
     "db:studio": "drizzle-kit studio",
+    "db:migrate": "drizzle-kit migrate",
     "db:generate": "drizzle-kit generate",
     "db:check": "drizzle-kit check",
-    "db:seed": "tsx src/db/seed.ts"
+    "db:reset": "tsx src/db/reset.ts"
   },
   "dependencies": {
     "@google/genai": "^2.19.0",

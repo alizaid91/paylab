@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   BarChart3,
   ChevronRight,
   ClipboardList,
+  Database,
   LayoutDashboard,
   Settings,
   Store,
@@ -20,6 +22,7 @@ const navigation = [
   { label: "Analytics", href: "/analytics", icon: BarChart3 },
   { label: "Opportunities", href: "/opportunities", icon: Target },
   { label: "Executions", href: "/executions", icon: ClipboardList },
+  { label: "Data Source", href: "/data-source", icon: Database },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 
@@ -34,7 +37,7 @@ export function Sidebar({
       {open && (
         <button
           aria-label="Close navigation"
-          className="fixed inset-0 z-30 bg-slate-950/30 lg:hidden"
+          className="fixed inset-0 z-30 bg-primary/30 lg:hidden"
           onClick={onClose}
         />
       )}
@@ -44,15 +47,16 @@ export function Sidebar({
           open && "translate-x-0",
         )}
       >
-        <div className="flex h-16 items-center justify-between border-b px-5">
-          <Link
-            href="/"
-            className="flex items-center gap-2 font-semibold tracking-tight"
-          >
-            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-xs font-bold text-white">
-              P
-            </span>
-            PAYLAB
+        <div className="flex h-18 items-center justify-between border-b px-5">
+          <Link href="/" className="flex items-center">
+            <Image
+              src="/logos/full_logo.png"
+              alt="PAYLAB"
+              width={145}
+              height={44}
+              className="h-16 w-auto object-contain"
+              priority
+            />
           </Link>
           <button
             className="rounded-md p-1 text-muted-foreground hover:bg-muted lg:hidden"

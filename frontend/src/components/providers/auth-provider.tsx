@@ -28,6 +28,7 @@ export function AuthProvider({ children }: Readonly<{ children: React.ReactNode 
   });
   const session = authQuery.data ?? null;
   const publicRoute = pathname === "/login" || pathname === "/register";
+  const rootRoute = pathname === "/";
 
   useEffect(() => {
     if (authQuery.isError) {
@@ -39,8 +40,9 @@ export function AuthProvider({ children }: Readonly<{ children: React.ReactNode 
   useEffect(() => {
     if (hasToken && authQuery.isPending) return;
     if (session && publicRoute) router.replace("/dashboard");
+    if (session && rootRoute) router.replace("/dashboard");
     if (!session && !publicRoute) router.replace("/login");
-  }, [authQuery.isPending, hasToken, publicRoute, router, session]);
+  }, [authQuery.isPending, hasToken, publicRoute, rootRoute, router, session]);
 
   const value = useMemo(() => ({
     session,
@@ -53,7 +55,7 @@ export function AuthProvider({ children }: Readonly<{ children: React.ReactNode 
     }
   }), [authQuery.isPending, hasToken, queryClient, router, session]);
 
-  if ((hasToken && authQuery.isPending) || (!session && !publicRoute) || (session && publicRoute)) {
+  if ((hasToken && authQuery.isPending) || (!session && !publicRoute) || (session && publicRoute) || (session && rootRoute)) {
     return <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground"><span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-accent" />Loading your workspace...</div>;
   }
 

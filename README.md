@@ -2,6 +2,8 @@
 
 **An AI-powered payment operations and decision-execution platform that turns payment data into explainable, governed, and measurable actions.**
 
+![PAYLAB platform banner](frontend/public/readme_banner.png)
+
 PAYLAB closes the operational loop from payment data to opportunity detection, strategy generation, simulation, advisory review, policy validation, merchant approval, execution, results, and audit trail. Revenue recovery is the primary use case, but the platform is designed around a broader problem: converting payment operations data into controlled decisions that can be evaluated and acted on.
 
 > **Current scope:** PAYLAB works with seeded or application-managed payment data. Its execution flow is simulated and does not initiate real payment operations.
@@ -30,6 +32,21 @@ Payment Data
 ```
 
 The same workflow can support payment recovery today because failed transactions and retries provide a concrete source of operational opportunities. The platform's durable value is the decision infrastructure around that opportunity: evidence, assumptions, governance, approval, outcome measurement, and traceability.
+
+## Getting started with PAYLAB
+
+New users begin by registering an account. Registration creates the user and their merchant workspace, then signs them in to the application. Before payment analysis can begin, the merchant chooses a data source from the **Data Source** page:
+
+1. **Register** with a name, email, password, and merchant name.
+2. **Open the data-source onboarding screen** from the workspace.
+3. **Choose a source**:
+   - **Use Demo Data** generates realistic customers, payments, and payment attempts for the authenticated merchant.
+   - **Connect Razorpay** is displayed as a UI option, but provider OAuth and live ingestion are not implemented yet.
+4. **Continue to the dashboard** after demo data generation completes.
+
+The selected source is persisted on the merchant as `none`, `demo`, or `razorpay_live`. The active source is displayed in the application header, and the **Data Source** page prevents demo data from being generated again once a source is connected. Existing merchants with payment data continue directly to the normal workspace; merchants without a source are not forcibly redirected away from other authenticated pages.
+
+PAYLAB uses its branded logo throughout the sidebar and login/register screens. The source assets are stored in `frontend/public/logos/full_logo.png`, `frontend/public/razorpay.png`, and `frontend/public/readme_banner.png`.
 
 ## Why PAYLAB?
 
@@ -77,12 +94,13 @@ The backend enforces the safety-critical order. A strategy cannot be approved un
 - **Auditability:** workflow transitions and decisions are recorded as audit events.
 - **Engineering controls:** JWT authentication, bcrypt password hashing, request logging, rate limits, Helmet, CORS, and validation.
 - **Operational dashboard:** Next.js pages for analytics, payments, opportunities, strategy review, approval, and execution history.
+- **Merchant-scoped onboarding:** registration creates the workspace, while demo data generation is tied to the currently authenticated merchant and protected against duplicate generation.
 
 ## How the system works
 
 ### 1. Payment data and analysis
 
-The API reads merchant-scoped `payments` and `payment_attempts` records. Analytics can be viewed as an overview, by payment method, by failure dimension, or as time-based trends. Supported dimensions include payment method, hour, date, and device metadata.
+The API reads merchant-scoped `payments` and `payment_attempts` records. A newly registered merchant can generate application-managed demo records from the **Data Source** page; the generator creates related customers, payments, and attempts for that merchant only. Analytics can be viewed as an overview, by payment method, by failure dimension, or as time-based trends. Supported dimensions include payment method, hour, date, and device metadata.
 
 This is the platform's evidence layer: it provides the operational context used by detection, strategy generation, and simulation.
 
@@ -322,6 +340,10 @@ No real payment provider API is called and no payment is changed.
 │   │   ├── app/                  # Next.js routes
 │   │   ├── components/           # Dashboard, review, execution, and UI components
 │   │   └── lib/                 # API clients and frontend utilities
+│   ├── public/
+│   │   ├── logos/full_logo.png  # PAYLAB logo used by the UI
+│   │   ├── razorpay.png         # Razorpay logo for the data-source card
+│   │   └── readme_banner.png    # Repository documentation banner
 │   ├── .env.example
 │   └── package.json
 └── README.md
@@ -385,17 +407,18 @@ Set `DATABASE_URL` and a strong `JWT_SECRET` in `backend/.env`. Set `NEXT_PUBLIC
 
 ### Apply migrations and seed the demo data
 
-The seed command resets the PostgreSQL `public` and `drizzle` schemas, applies the checked-in Drizzle migrations, and inserts a deterministic demo merchant, customers, payments, and payment attempts. Do not run it against a database containing data you need to keep.
+The reset command resets the PostgreSQL `public` and `drizzle` schemas.
 
 ```powershell
 cd backend
-npm run db:seed
+npm run db:reset
 ```
 
 Other database commands available in the backend:
 
 ```powershell
 npm run db:generate
+npm run db:migrate
 npm run db:check
 npm run db:studio
 ```
@@ -418,18 +441,6 @@ npm run dev
 
 The backend exposes health checks at `/health` and `/ready`. Open the frontend URL printed by Next.js, normally `http://localhost:3000`.
 
-### Seeded demo credentials
-
-The seed script explicitly creates this development-only account:
-
-```text
-Email:    demo@paylab.test
-Password: demo-password-123
-Merchant: PAYLAB Demo Store
-```
-
-Do not use these credentials outside a local demo environment.
-
 ## API overview
 
 Protected endpoints require:
@@ -446,6 +457,7 @@ Authorization: Bearer <access-token>
 | `POST` | `/api/auth/login` | Authenticate and receive an access token. |
 | `GET` | `/api/auth/me` | Return the authenticated user and merchant. |
 | `GET/PUT` | `/api/merchant` | Read or update the current merchant. |
+| `POST` | `/api/payments/demo-data` | Generate merchant-scoped demo customers, payments, and payment attempts. |
 | `GET` | `/api/payments` | Paginated, filterable payment list. |
 | `GET` | `/api/payments/:id` | Payment details with attempts. |
 | `GET` | `/api/payments/stats` | Payment totals and status breakdown. |
@@ -512,16 +524,18 @@ These are not current capabilities; they are possible extensions:
 
 ## Demo walkthrough
 
-The recommended walkthrough demonstrates the complete decision-execution loop rather than only the analytics surface:
+The recommended walkthrough demonstrates registration, merchant-scoped data onboarding, and the complete decision-execution loop rather than only the analytics surface:
 
 1. Start PostgreSQL, run `npm run db:seed` in `backend`, and start both applications.
-2. Sign in with the seeded demo credentials to establish the merchant-scoped workspace.
-3. Open **Analytics** and **Payments** to inspect the evidence layer: volume, success/failure rates, payment methods, retries, trends, and attempt history.
-4. Run opportunity analysis and review the detected UPI evening, mobile card, or customer retry opportunity, including its evidence, affected value, priority, and confidence.
-5. Generate a strategy for an opportunity. If Gemini is configured, inspect the objective, trigger, actions, expected impact, assumptions, risks, and reasoning.
-6. Simulate the strategy and review the projected success rate, projected revenue, potential recovery, confidence, and risk before any execution record exists.
-7. Run the AI advisory review and inspect the recommendation, concerns, recommendations, and assumption issues.
-8. Review or update the merchant policy, then run policy validation and inspect every evaluated value and failed rule.
-9. Approve the strategy as the merchant only after the advisory and policy gates pass.
-10. Execute the approved strategy and inspect expected versus actual simulated recovery in **Executions**.
-11. Review the related audit events to trace the strategy from detection through decision, approval, execution, and result.
+2. For a new workspace, register a user and merchant, then open **Data Source**.
+3. Select **Use Demo Data** and wait for merchant-scoped customers, payments, and payment attempts to be generated. The dashboard becomes available when generation completes.
+4. Alternatively, use the seeded demo credentials to sign in to the already-populated demo merchant.
+5. Open **Analytics** and **Payments** to inspect the evidence layer: volume, success/failure rates, payment methods, retries, trends, and attempt history. Confirm the active source in the header.
+6. Run opportunity analysis and review the detected UPI evening, mobile card, or customer retry opportunity, including its evidence, affected value, priority, and confidence.
+7. Generate a strategy for an opportunity. If Gemini is configured, inspect the objective, trigger, actions, expected impact, assumptions, risks, and reasoning.
+8. Simulate the strategy and review the projected success rate, projected revenue, potential recovery, confidence, and risk before any execution record exists.
+9. Run the AI advisory review and inspect the recommendation, concerns, recommendations, and assumption issues.
+10. Review or update the merchant policy, then run policy validation and inspect every evaluated value and failed rule.
+11. Approve the strategy as the merchant only after the advisory and policy gates pass.
+12. Execute the approved strategy and inspect expected versus actual simulated recovery in **Executions**.
+13. Review the related audit events to trace the strategy from detection through decision, approval, execution, and result.

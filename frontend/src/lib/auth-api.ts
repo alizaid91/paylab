@@ -15,6 +15,7 @@ export interface Merchant {
   slug: string;
   defaultCurrency: string;
   timezone: string;
+  dataSource: "none" | "demo" | "razorpay_live";
 }
 
 export interface Session {
