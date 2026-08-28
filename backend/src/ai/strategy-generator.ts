@@ -17,7 +17,10 @@ const strategySchema = z.object({
   expectedImpact: z.object({
     successRateLiftPercentage: z.number().min(0).max(100),
     revenueRecoveryPercentage: z.number().min(0).max(100),
-    estimatedRevenueRecovery: z.string().regex(/^\d+(?:\.\d{1,4})?$/)
+    estimatedRevenueRecovery: z.preprocess(
+      normalizeEstimatedRevenueRecovery,
+      z.string().regex(/^\d+(?:\.\d{1,4})?$/)
+    )
   }).strict(),
   assumptions: z.array(z.string().min(1).max(500)).max(20),
   risks: z.array(z.string().min(1).max(500)).max(20),
@@ -41,8 +44,9 @@ export class StrategyGenerator {
     let raw: unknown;
     try {
       raw = await this.provider.generateStructured({
-        systemPrompt: 'Return only valid JSON matching the requested strategy schema. Do not include secrets or personal data.',
-        userPrompt: JSON.stringify(context)
+        systemPrompt: 'Return only JSON matching the supplied response schema. Use every property exactly as named. Do not include markdown, explanations, secrets, or personal data.',
+        userPrompt: JSON.stringify(context),
+        responseJsonSchema: strategyResponseSchema
       });
     } catch (error) {
       logger.error({ providerError: error instanceof Error ? error.message : 'unknown provider error' }, 'Strategy generation failed');
@@ -51,7 +55,13 @@ export class StrategyGenerator {
 
     const parsed = strategySchema.safeParse(raw);
     if (!parsed.success) {
-      logger.error({ issueCount: parsed.error.issues.length }, 'AI strategy response failed validation');
+      logger.error({
+        issueCount: parsed.error.issues.length,
+        issues: parsed.error.issues.map((issue) => ({
+          path: issue.path.join('.'),
+          message: issue.message
+        }))
+      }, 'AI strategy response failed validation');
       throw new AppError(502, 'INVALID_AI_RESPONSE', 'Strategy generation returned an invalid response');
     }
     return parsed.data;
@@ -59,3 +69,61 @@ export class StrategyGenerator {
 }
 
 export { strategySchema };
+
+function normalizeEstimatedRevenueRecovery(value: unknown): unknown {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) && value >= 0 ? String(value) : value;
+  }
+  if (typeof value !== 'string') return value;
+
+  const normalized = value.trim()
+    .replace(/,/g, '')
+    .replace(/^(?:[$€£₹]|[A-Za-z]{3})\s*/, '')
+    .replace(/\s*(?:[A-Za-z]{3})$/, '');
+  return normalized;
+}
+
+const strategyResponseSchema: Record<string, unknown> = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['objective', 'targetSegment', 'trigger', 'actions', 'expectedImpact', 'assumptions', 'risks', 'confidence', 'reasoning'],
+  properties: {
+    objective: { type: 'string' },
+    targetSegment: { type: 'string' },
+    trigger: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['type', 'conditions'],
+      properties: {
+        type: { type: 'string' },
+        conditions: { type: 'array', items: { type: 'string' } }
+      }
+    },
+    actions: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['action', 'parameters'],
+        properties: {
+          action: { type: 'string' },
+          parameters: { type: 'object', additionalProperties: true }
+        }
+      }
+    },
+    expectedImpact: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['successRateLiftPercentage', 'revenueRecoveryPercentage', 'estimatedRevenueRecovery'],
+      properties: {
+        successRateLiftPercentage: { type: 'number' },
+        revenueRecoveryPercentage: { type: 'number' },
+        estimatedRevenueRecovery: { type: 'string' }
+      }
+    },
+    assumptions: { type: 'array', items: { type: 'string' } },
+    risks: { type: 'array', items: { type: 'string' } },
+    confidence: { type: 'number' },
+    reasoning: { type: 'string' }
+  }
+};

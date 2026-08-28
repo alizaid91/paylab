@@ -20,6 +20,7 @@ const navigation = [
   { label: "Analytics", href: "/analytics", icon: BarChart3 },
   { label: "Opportunities", href: "/opportunities", icon: Target },
   { label: "Executions", href: "/executions", icon: ClipboardList },
+  { label: "Settings", href: "/settings", icon: Settings },
 ];
 
 export function Sidebar({
@@ -81,7 +82,7 @@ export function Sidebar({
           </p>
           {navigation.map((item) => {
             const Icon = item.icon;
-            const active = pathname === item.href;
+            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
             return (
               <Link
                 key={item.href}
@@ -98,15 +99,6 @@ export function Sidebar({
             );
           })}
         </nav>
-        <div className="border-t p-4">
-          <Link
-            href="/settings"
-            className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-          >
-            <Settings className="h-4 w-4" />
-            Settings
-          </Link>
-        </div>
       </aside>
     </>
   );

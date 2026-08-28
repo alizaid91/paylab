@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { sendSuccess } from '../../utils/api-response.js';
 import { StrategyService } from './service.js';
 import { SimulationService } from '../simulations/service.js';
-import { simulationInputSchema } from './validation.js';
+import { advisoryReviewInputSchema } from './validation.js';
 import { AdvisoryService } from './advisory-service.js';
 import { ExecutionService } from '../executions/service.js';
 
@@ -24,8 +24,7 @@ export const getById: RequestHandler = async (req, res) => {
 export const simulate: RequestHandler = async (req, res) => {
   sendSuccess(res, await simulationService.simulateForUser(
     req.auth!.userId,
-    idSchema.parse(req.params.id),
-    simulationInputSchema.parse(req.body)
+    idSchema.parse(req.params.id)
   ), 201);
 };
 
@@ -34,7 +33,11 @@ export const listSimulations: RequestHandler = async (req, res) => {
 };
 
 export const advisoryReview: RequestHandler = async (req, res) => {
-  sendSuccess(res, await advisoryService.reviewForUser(req.auth!.userId, idSchema.parse(req.params.id)), 201);
+  sendSuccess(res, await advisoryService.reviewForUser(
+    req.auth!.userId,
+    idSchema.parse(req.params.id),
+    advisoryReviewInputSchema.parse(req.body).simulationId
+  ), 201);
 };
 
 export const approve: RequestHandler = async (req, res) => {

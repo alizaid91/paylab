@@ -1,6 +1,6 @@
 import { and, count, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '../../db/client.js';
-import { opportunities, payments } from '../../db/schema.js';
+import { opportunities, payments, strategies } from '../../db/schema.js';
 import { AppError } from '../../utils/app-error.js';
 import { merchantIdForUser } from '../../utils/merchant-context.js';
 import type { OpportunityListQuery } from './validation.js';
@@ -214,7 +214,24 @@ export class OpportunityService {
       eq(opportunities.merchantId, merchantId)
     )).limit(1);
     if (!opportunity) throw new AppError(404, 'OPPORTUNITY_NOT_FOUND', 'Opportunity not found');
-    return opportunity;
+
+    const relatedStrategies = await db.select({
+      id: strategies.id,
+      name: strategies.name,
+      type: strategies.type,
+      status: strategies.status,
+      version: strategies.version,
+      createdAt: strategies.createdAt,
+      updatedAt: strategies.updatedAt
+    }).from(strategies).where(and(
+      eq(strategies.opportunityId, opportunityId),
+      eq(strategies.merchantId, merchantId)
+    )).orderBy(desc(strategies.createdAt));
+
+    return {
+      ...opportunity,
+      strategies: relatedStrategies
+    };
   }
 }
 

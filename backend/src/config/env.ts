@@ -14,7 +14,9 @@ const envSchema = z.object({
   AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900000),
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(20),
   AI_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900000),
-  AI_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10)
+  AI_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
+  GEMINI_API_KEY: z.string().min(1).optional(),
+  GEMINI_MODEL: z.string().min(1).default('gemini-3.6-flash')
 });
 
 const result = envSchema.safeParse(process.env);

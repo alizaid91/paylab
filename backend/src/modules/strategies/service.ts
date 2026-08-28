@@ -1,12 +1,12 @@
-import { and, count, eq } from 'drizzle-orm';
+import { and, count, desc, eq } from 'drizzle-orm';
 import { db } from '../../db/client.js';
-import { auditLogs, merchants, opportunities, strategies } from '../../db/schema.js';
+import { advisoryReviews, auditLogs, merchants, opportunities, policyResults, simulations, strategies } from '../../db/schema.js';
 import { AppError } from '../../utils/app-error.js';
 import { merchantIdForUser } from '../../utils/merchant-context.js';
 import { StrategyGenerator, type StrategyOutput } from '../../ai/strategy-generator.js';
-import { UnavailableAIProvider } from '../../ai/provider.js';
+import { GeminiAIProvider } from '../../ai/provider.js';
 
-const generator = new StrategyGenerator(new UnavailableAIProvider());
+const generator = new StrategyGenerator(new GeminiAIProvider());
 
 export class StrategyService {
   async getByIdForUser(userId: string, strategyId: string) {
@@ -19,6 +19,18 @@ export class StrategyService {
       .where(and(eq(strategies.id, strategyId), eq(strategies.merchantId, merchantId)))
       .limit(1);
     if (!context) throw new AppError(404, 'STRATEGY_NOT_FOUND', 'Strategy not found');
+    const [advisoryReview, policyCheck] = await Promise.all([
+      db.select().from(advisoryReviews)
+        .innerJoin(simulations, eq(advisoryReviews.simulationId, simulations.id))
+        .where(and(eq(advisoryReviews.merchantId, merchantId), eq(simulations.strategyId, strategyId)))
+        .orderBy(desc(advisoryReviews.createdAt))
+        .limit(1),
+      db.select().from(policyResults)
+        .innerJoin(simulations, eq(policyResults.simulationId, simulations.id))
+        .where(and(eq(policyResults.merchantId, merchantId), eq(simulations.strategyId, strategyId)))
+        .orderBy(desc(policyResults.evaluatedAt))
+        .limit(1)
+    ]);
     return {
       ...context.strategy,
       opportunity: context.opportunity ? {
@@ -26,7 +38,9 @@ export class StrategyService {
         name: context.opportunity.title,
         affectedTransactionCount: context.opportunity.affectedTransactionCount,
         estimatedOpportunityValue: context.opportunity.estimatedOpportunityValue
-      } : null
+      } : null,
+      advisoryReview: advisoryReview[0]?.advisory_reviews ?? null,
+      policyCheck: policyCheck[0]?.policy_results ?? null
     };
   }
 

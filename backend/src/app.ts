@@ -17,6 +17,8 @@ import { analyticsRouter } from './modules/analytics/routes.js';
 import { opportunityRouter } from './modules/opportunities/routes.js';
 import { strategyRouter } from './modules/strategies/routes.js';
 import { policyRouter } from './modules/policies/routes.js';
+import { executionRouter } from './modules/executions/routes.js';
+import { auditLogRouter } from './modules/audit-logs/routes.js';
 
 export function createApp(dependencies?: {
   authService?: AuthServiceLike;
@@ -36,6 +38,8 @@ export function createApp(dependencies?: {
   app.use('/api/opportunities', opportunityRouter);
   app.use('/api/strategies', strategyRouter);
   app.use('/api', policyRouter);
+  app.use('/api/executions', executionRouter);
+  app.use('/api/audit-logs', auditLogRouter);
 
   app.get('/health', (_req, res) => {
     sendSuccess(res, { status: 'ok' });

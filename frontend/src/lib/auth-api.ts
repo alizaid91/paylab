@@ -32,6 +32,14 @@ export function getCurrentUser() {
   return apiClient<ApiResponse<Session>>("/auth/me").then((response) => response.data);
 }
 
+export function getMerchant() {
+  return apiClient<ApiResponse<Merchant>>("/merchant").then((response) => response.data);
+}
+
+export function updateMerchant(input: Partial<Pick<Merchant, "name" | "slug" | "defaultCurrency" | "timezone">>) {
+  return apiClient<ApiResponse<Merchant>>("/merchant", { method: "PUT", body: JSON.stringify(input) }).then((response) => response.data);
+}
+
 export function login(input: { email: string; password: string }) {
   return apiClient<ApiResponse<AuthResponse>>("/auth/login", {
     method: "POST",
