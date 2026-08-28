@@ -44,10 +44,6 @@ New users begin by registering an account. Registration creates the user and the
    - **Connect Razorpay** is displayed as a UI option, but provider OAuth and live ingestion are not implemented yet.
 4. **Continue to the dashboard** after demo data generation completes.
 
-The selected source is persisted on the merchant as `none`, `demo`, or `razorpay_live`. The active source is displayed in the application header, and the **Data Source** page prevents demo data from being generated again once a source is connected. Existing merchants with payment data continue directly to the normal workspace; merchants without a source are not forcibly redirected away from other authenticated pages.
-
-PAYLAB uses its branded logo throughout the sidebar and login/register screens. The source assets are stored in `frontend/public/logos/full_logo.png`, `frontend/public/razorpay.png`, and `frontend/public/readme_banner.png`.
-
 ## Why PAYLAB?
 
 PAYLAB is different from a normal payment analytics system because it does not end with an insight. It closes the loop:
@@ -318,7 +314,7 @@ No real payment provider API is called and no payment is changed.
 │   ├── src/
 │   │   ├── ai/                  # Gemini provider, strategy generator, advisory agent
 │   │   ├── config/              # Environment parsing and logging
-│   │   ├── db/                  # Drizzle client, schema, seed
+│   │   ├── db/                  # Drizzle client, schema, reset
 │   │   ├── middleware/          # Authentication, rate limiting, logging, errors
 │   │   ├── modules/
 │   │   │   ├── analytics/
@@ -340,10 +336,6 @@ No real payment provider API is called and no payment is changed.
 │   │   ├── app/                  # Next.js routes
 │   │   ├── components/           # Dashboard, review, execution, and UI components
 │   │   └── lib/                 # API clients and frontend utilities
-│   ├── public/
-│   │   ├── logos/full_logo.png  # PAYLAB logo used by the UI
-│   │   ├── razorpay.png         # Razorpay logo for the data-source card
-│   │   └── readme_banner.png    # Repository documentation banner
 │   ├── .env.example
 │   └── package.json
 └── README.md
@@ -405,7 +397,7 @@ Copy-Item .env.example .env.local
 
 Set `DATABASE_URL` and a strong `JWT_SECRET` in `backend/.env`. Set `NEXT_PUBLIC_API_URL` in `frontend/.env.local` if the API is not at the configured default.
 
-### Apply migrations and seed the demo data
+### Apply migrations
 
 The reset command resets the PostgreSQL `public` and `drizzle` schemas.
 
@@ -507,7 +499,7 @@ Query validation, response envelopes, and error handling are implemented in the 
 - AI availability depends on the configured Gemini provider and valid structured output.
 - The model does not execute strategy actions against customers or payment providers.
 - The current data model and workflow are merchant-admin oriented; broader role-specific authorization is not represented as a separate policy layer.
-- The seed command is destructive because it resets the public and migration schemas.
+- The reset command is destructive because it resets the public and migration schemas.
 
 ## Future improvements
 
@@ -526,10 +518,9 @@ These are not current capabilities; they are possible extensions:
 
 The recommended walkthrough demonstrates registration, merchant-scoped data onboarding, and the complete decision-execution loop rather than only the analytics surface:
 
-1. Start PostgreSQL, run `npm run db:seed` in `backend`, and start both applications.
+1. Start PostgreSQL, run `npm run db:reset` in `backend`, and start both applications.
 2. For a new workspace, register a user and merchant, then open **Data Source**.
 3. Select **Use Demo Data** and wait for merchant-scoped customers, payments, and payment attempts to be generated. The dashboard becomes available when generation completes.
-4. Alternatively, use the seeded demo credentials to sign in to the already-populated demo merchant.
 5. Open **Analytics** and **Payments** to inspect the evidence layer: volume, success/failure rates, payment methods, retries, trends, and attempt history. Confirm the active source in the header.
 6. Run opportunity analysis and review the detected UPI evening, mobile card, or customer retry opportunity, including its evidence, affected value, priority, and confidence.
 7. Generate a strategy for an opportunity. If Gemini is configured, inspect the objective, trigger, actions, expected impact, assumptions, risks, and reasoning.
