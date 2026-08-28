@@ -1,95 +1,116 @@
 # PAYLAB
 
-**A governed payment-recovery workspace that turns failed-payment evidence into simulated, reviewable recovery strategies.**
+**An AI-powered payment operations and decision-execution platform that turns payment data into explainable, governed, and measurable actions.**
 
-PAYLAB is an MVP for analyzing a merchant's payment history, finding repeatable failure patterns, proposing a recovery strategy, and requiring simulation, AI review, deterministic policy checks, and merchant approval before a simulated execution is recorded.
+PAYLAB closes the operational loop from payment data to opportunity detection, strategy generation, simulation, advisory review, policy validation, merchant approval, execution, results, and audit trail. Revenue recovery is the primary use case, but the platform is designed around a broader problem: converting payment operations data into controlled decisions that can be evaluated and acted on.
 
-> **Scope:** PAYLAB currently works with seeded or application-managed payment data. Its execution flow is simulated and does not initiate real payment operations.
+> **Current scope:** PAYLAB works with seeded or application-managed payment data. Its execution flow is simulated and does not initiate real payment operations.
 
 ## What is PAYLAB?
 
-Payment failures are not always random. They can cluster around a payment method, device type, time window, or customer retry behavior. Without analysis, a merchant may see only aggregate failed payments and miss revenue that could potentially be recovered.
+Most payment systems stop at reporting: they show volume, success rates, and failures. PAYLAB is built for the next operational step. It identifies meaningful patterns, turns them into actionable strategies, tests expected impact, reviews risks, applies enforceable controls, and records what happened.
 
-PAYLAB provides a controlled workflow:
+The platform separates analytical evidence, AI-assisted judgment, deterministic governance, and execution state. That makes each proposed action explainable and reviewable rather than an opaque recommendation or an isolated dashboard metric.
 
-1. Analyze payment and retry history.
-2. Detect evidence-backed recovery opportunities.
-3. Generate a structured strategy for an opportunity.
-4. Project the strategy's impact with a deterministic simulation.
-5. Ask an AI advisory agent to review risks and assumptions.
-6. Enforce merchant-configured safety rules.
-7. Require explicit merchant approval.
-8. Record a simulated execution and result.
+## Product overview
+
+PAYLAB turns operational payment data into a controlled decision:
+
+```text
+Payment Data
+  → Opportunity Detection
+  → Strategy Generation
+  → Simulation
+  → AI Advisory
+  → Policy Validation
+  → Merchant Approval
+  → Execution
+  → Results
+  → Audit Trail
+```
+
+The same workflow can support payment recovery today because failed transactions and retries provide a concrete source of operational opportunities. The platform's durable value is the decision infrastructure around that opportunity: evidence, assumptions, governance, approval, outcome measurement, and traceability.
 
 ## Why PAYLAB?
 
-The system focuses on **recoverable payment failures** rather than treating every failed transaction equally. It compares observed behavior against a baseline, preserves the evidence used to create an opportunity, and keeps AI recommendations behind deterministic controls and human approval.
+PAYLAB is different from a normal payment analytics system because it does not end with an insight. It closes the loop:
 
-This makes the proposed action inspectable: a reviewer can see the affected transactions, estimated value, assumptions, risk assessment, policy result, approval, execution record, and audit events in one place.
+- **Detection:** finds operationally meaningful patterns instead of presenting only aggregates.
+- **Decision:** generates an actionable strategy against the identified opportunity.
+- **Governance:** simulates impact, reviews quality and risk with AI, and enforces merchant policy.
+- **Execution:** requires explicit merchant approval before an action is recorded.
+- **Measurement:** stores expected and actual simulated outcomes.
+- **Traceability:** maintains audit events across the decision and execution lifecycle.
+
+For the current use case, this means surfacing recoverable payment failures and estimating potential recovery without treating every failure as equally actionable.
 
 ## Core workflow
 
 ```mermaid
 flowchart LR
-    A[Analyze Payments] --> B[Find Opportunities]
-    B --> C[Generate Strategy]
-    C --> D[Simulate]
-    D --> E[AI Advisory Review]
-    E --> F[Policy Check]
+    A[Payment Data] --> B[Opportunity Detection]
+    B --> C[Strategy Generation]
+    C --> D[Simulation]
+    D --> E[AI Advisory]
+    E --> F[Policy Validation]
     F --> G[Merchant Approval]
     G --> H[Execution]
-    H --> I[Execution Result and Audit Log]
+    H --> I[Results]
+    I --> J[Audit Trail]
 ```
 
-The backend enforces the order of the safety-critical steps. A strategy cannot be approved until it has a completed simulation, an advisory review, and a passed policy result. Execution requires merchant approval and creates a simulated result.
+The backend enforces the safety-critical order. A strategy cannot be approved until it has a completed simulation, an advisory review, and a passed policy result. Execution requires merchant approval and creates a result plus audit events.
 
 ## Key features
 
-- Merchant-scoped payment analytics and payment-attempt history.
-- Deterministic opportunity detection for:
+- **Operational payment intelligence:** merchant-scoped payment analytics and payment-attempt history provide the evidence layer.
+- **Opportunity detection:** deterministic detection for:
   - UPI failures during the 19:00–22:00 window.
   - Mobile card failures compared with non-mobile card failures.
   - Customers with repeated failures or retries.
-- Structured Gemini-powered strategy generation with Zod validation.
-- Deterministic recovery simulation with explicit assumptions and confidence.
-- Gemini advisory review that returns a decision, confidence, concerns, recommendations, assumption issues, and risk level.
-- Configurable deterministic policy checks for exposure, affected transaction share, payment methods, execution hours, amount, and confidence.
-- Explicit merchant approval before execution.
-- Simulated execution results with expected versus actual simulated recovery.
-- JWT authentication, bcrypt password hashing, request logging, rate limits, Helmet, CORS, validation, and audit logs.
-- Next.js dashboard pages for analytics, payments, opportunities, strategy review, approval, and execution history.
+- **Actionable strategies:** structured Gemini-powered strategy generation with Zod validation.
+- **Pre-execution evaluation:** deterministic simulation with explicit assumptions, projected impact, confidence, and risk.
+- **AI advisory:** structured review of strategy quality, risks, recommendations, and assumption issues.
+- **Policy-constrained decisions:** configurable deterministic checks for exposure, affected transaction share, payment methods, execution hours, amount, and confidence.
+- **Human-controlled execution:** explicit merchant approval is required before an execution can be recorded.
+- **Outcome tracking:** expected recovery is compared with actual simulated recovery.
+- **Auditability:** workflow transitions and decisions are recorded as audit events.
+- **Engineering controls:** JWT authentication, bcrypt password hashing, request logging, rate limits, Helmet, CORS, and validation.
+- **Operational dashboard:** Next.js pages for analytics, payments, opportunities, strategy review, approval, and execution history.
 
 ## How the system works
 
-### 1. Analyze payments
+### 1. Payment data and analysis
 
 The API reads merchant-scoped `payments` and `payment_attempts` records. Analytics can be viewed as an overview, by payment method, by failure dimension, or as time-based trends. Supported dimensions include payment method, hour, date, and device metadata.
 
-### 2. Find opportunities
+This is the platform's evidence layer: it provides the operational context used by detection, strategy generation, and simulation.
+
+### 2. Opportunity detection
 
 `POST /api/opportunities/analyze` runs the current rule-based detector. Each opportunity stores its type, severity, priority, affected count, affected payment value, estimated opportunity value, confidence, and evidence.
 
 Existing active opportunities of the same type are not duplicated. The detector uses minimum sample and lift thresholds so an isolated failure is not promoted as an opportunity.
 
-### 3. Generate a strategy
+### 3. Strategy generation
 
 `POST /api/opportunities/:id/generate-strategy` sends the opportunity evidence, merchant context, and historical evidence to Gemini. The response must match a strict structured schema containing an objective, target segment, trigger, actions, expected impact, assumptions, risks, confidence, and reasoning.
 
 The generated configuration is stored in `strategies`, with a version number and a strategy type derived from the opportunity type.
 
-### 4. Simulate
+### 4. Simulation
 
 `POST /api/strategies/:id/simulate` creates one simulation for a strategy. It calculates current success rate and revenue from the merchant's payment history, then applies a sampled recovery-rate assumption only to the opportunity's affected transactions and payment value.
 
 The simulation records projected success rate, projected revenue, potential revenue recovery, confidence, assumptions, and risk level. It does not change payment records.
 
-### 5. AI advisory review
+### 5. AI advisory
 
 `POST /api/strategies/:id/advisory-review` sends the strategy, simulation output, opportunity, and opportunity evidence to Gemini. The response is normalized and validated before being persisted as an advisory review.
 
 The advisory agent is consultative. Its system prompt explicitly prevents it from authorizing execution. A response of `APPROVE`, `MODIFY`, or `REJECT` becomes an advisory recommendation and risk assessment; it is not a substitute for policy enforcement or merchant approval.
 
-### 6. Policy check
+### 6. Policy validation
 
 `POST /api/strategies/:id/policy-check` evaluates the latest completed simulation and advisory review against the active merchant policy. The default policy includes:
 
@@ -109,7 +130,7 @@ The result stores evaluated values and failed rules. A passed check moves the st
 
 `POST /api/strategies/:id/approve` is available only after policy approval. The backend verifies the strategy state, completed simulation, advisory review, and passed policy result before recording the approving user and moving the strategy to `merchant_approved`.
 
-### 8. Execution
+### 8. Execution and results
 
 `POST /api/strategies/:id/execute` creates an execution and immediately records a completed simulated result. The current implementation:
 
@@ -122,23 +143,42 @@ Execution and result records are visible through the executions API and dashboar
 
 ## System architecture
 
+PAYLAB is split into a browser-based operations workspace and a workflow-oriented backend. The frontend presents the decision lifecycle; the backend owns merchant scoping, state transitions, persistence, AI orchestration, policy enforcement, execution recording, and auditability.
+
 ```mermaid
 flowchart TB
-    UI[Next.js Dashboard<br/>React + TanStack Query + Recharts]
-    API[Express API<br/>TypeScript]
-    AUTH[JWT Auth<br/>bcrypt]
-    MODULES[Backend modules<br/>analytics, payments, opportunities,<br/>strategies, policies, executions, audit logs]
+    UI[Next.js Operations Workspace<br/>React + TanStack Query + Recharts]
+    API[Express Workflow API<br/>TypeScript]
+    AUTH[JWT Authentication<br/>bcrypt]
+    DATA[Payment and merchant data]
+    DETECT[Opportunity detection]
+    DECIDE[Strategies and simulations]
+    GOVERN[Advisory and policy gates]
+    EXEC[Approval and execution]
     AI[Gemini provider<br/>structured JSON]
     DB[(PostgreSQL)]
     ORM[Drizzle ORM and migrations]
 
     UI -->|JSON over HTTP| API
     API --> AUTH
-    API --> MODULES
-    MODULES --> ORM
+    API --> DATA
+    API --> DETECT
+    API --> DECIDE
+    API --> GOVERN
+    API --> EXEC
+    DATA --> ORM
+    DETECT --> ORM
+    DECIDE --> ORM
+    GOVERN --> ORM
+    EXEC --> ORM
     ORM --> DB
-    MODULES --> AI
-    MODULES --> DB
+    DECIDE --> AI
+    GOVERN --> AI
+    DATA --> DB
+    DETECT --> DB
+    DECIDE --> DB
+    GOVERN --> DB
+    EXEC --> DB
 ```
 
 ### Major backend modules
@@ -316,10 +356,10 @@ Copy `backend/.env.example` to `backend/.env`. Values below are names and safe d
 Copy `frontend/.env.example` to `frontend/.env.local`:
 
 ```dotenv
-NEXT_PUBLIC_API_URL=http://localhost:8000/api
+NEXT_PUBLIC_API_URL=http://localhost:3000/api
 ```
 
-Set this to the URL where the backend API is running. The frontend stores the returned access token in browser `sessionStorage`.
+Set this to the URL where the backend API is running. The backend defaults to port `3000`; use `http://localhost:8000/api` instead if you configure `PORT=8000`. The frontend stores the returned access token in browser `sessionStorage`.
 
 ## Local setup
 
@@ -472,14 +512,16 @@ These are not current capabilities; they are possible extensions:
 
 ## Demo walkthrough
 
+The recommended walkthrough demonstrates the complete decision-execution loop rather than only the analytics surface:
+
 1. Start PostgreSQL, run `npm run db:seed` in `backend`, and start both applications.
-2. Sign in with the seeded demo credentials.
-3. Open **Analytics** to inspect payment volume, success/failure rates, methods, retries, and trends.
-4. Open **Payments** to inspect failed payments and their attempt history.
-5. Run opportunity analysis and review the detected UPI evening, mobile card, or customer retry opportunity.
-6. Open an opportunity and generate a strategy. If Gemini is configured, inspect its objective, trigger, actions, assumptions, risks, and confidence.
-7. Simulate the strategy and review the projected success rate, revenue, recovery amount, assumptions, and risk.
-8. Run the advisory review and inspect the AI recommendation and concerns.
-9. Review or update the merchant policy, then run the policy check and inspect evaluated values and failed rules.
-10. Approve the strategy as the merchant once the policy result passes.
-11. Execute the strategy and inspect the simulated recovery in **Executions** and the related audit events.
+2. Sign in with the seeded demo credentials to establish the merchant-scoped workspace.
+3. Open **Analytics** and **Payments** to inspect the evidence layer: volume, success/failure rates, payment methods, retries, trends, and attempt history.
+4. Run opportunity analysis and review the detected UPI evening, mobile card, or customer retry opportunity, including its evidence, affected value, priority, and confidence.
+5. Generate a strategy for an opportunity. If Gemini is configured, inspect the objective, trigger, actions, expected impact, assumptions, risks, and reasoning.
+6. Simulate the strategy and review the projected success rate, projected revenue, potential recovery, confidence, and risk before any execution record exists.
+7. Run the AI advisory review and inspect the recommendation, concerns, recommendations, and assumption issues.
+8. Review or update the merchant policy, then run policy validation and inspect every evaluated value and failed rule.
+9. Approve the strategy as the merchant only after the advisory and policy gates pass.
+10. Execute the approved strategy and inspect expected versus actual simulated recovery in **Executions**.
+11. Review the related audit events to trace the strategy from detection through decision, approval, execution, and result.
