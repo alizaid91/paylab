@@ -1,0 +1,2 @@
+CREATE TYPE "public"."merchant_data_source" AS ENUM('none', 'demo', 'razorpay_live');--> statement-breakpoint
+ALTER TABLE "merchants" ADD COLUMN "data_source" "merchant_data_source" DEFAULT 'none' NOT NULL;

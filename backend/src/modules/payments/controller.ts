@@ -19,3 +19,7 @@ export const getPaymentStats: RequestHandler = async (req, res) => {
   const query = paymentListQuerySchema.pick({ status: true, paymentMethod: true, from: true, to: true }).parse(req.query);
   sendSuccess(res, await service.statsForUser(req.auth!.userId, query));
 };
+
+export const generateDemoData: RequestHandler = async (req, res) => {
+  sendSuccess(res, await service.generateDemoDataForUser(req.auth!.userId));
+};

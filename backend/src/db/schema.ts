@@ -21,6 +21,7 @@ const timestamps = {
 
 export const userRoleEnum = pgEnum('user_role', ['admin', 'merchant_admin', 'analyst', 'operator']);
 export const merchantStatusEnum = pgEnum('merchant_status', ['active', 'suspended', 'inactive']);
+export const merchantDataSourceEnum = pgEnum('merchant_data_source', ['none', 'demo', 'razorpay_live']);
 export const paymentStatusEnum = pgEnum('payment_status', ['pending', 'succeeded', 'failed', 'refunded', 'cancelled']);
 export const paymentMethodEnum = pgEnum('payment_method', ['upi', 'card', 'net_banking']);
 export const paymentAttemptStatusEnum = pgEnum('payment_attempt_status', ['pending', 'succeeded', 'failed']);
@@ -53,6 +54,7 @@ export const merchants = pgTable('merchants', {
   slug: varchar('slug', { length: 200 }).notNull(),
   defaultCurrency: varchar('default_currency', { length: 3 }).notNull().default('USD'),
   timezone: varchar('timezone', { length: 100 }).notNull().default('UTC'),
+  dataSource: merchantDataSourceEnum('data_source').notNull().default('none'),
   status: merchantStatusEnum('status').notNull().default('active'),
   ...timestamps
 }, (table) => [

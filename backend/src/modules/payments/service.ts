@@ -1,9 +1,10 @@
 import { and, asc, count, desc, eq, gte, lte, sql, sum } from 'drizzle-orm';
 import { db } from '../../db/client.js';
-import { paymentAttempts, payments } from '../../db/schema.js';
+import { merchants, paymentAttempts, payments } from '../../db/schema.js';
 import { AppError } from '../../utils/app-error.js';
 import { merchantIdForUser } from '../../utils/merchant-context.js';
 import type { PaymentListQuery } from './validation.js';
+import { generateDemoData } from './demo-data.js';
 
 type PaymentFilters = {
   merchantId: string;
@@ -11,6 +12,42 @@ type PaymentFilters = {
 };
 
 export class PaymentService {
+  async generateDemoDataForUser(userId: string) {
+    const merchantId = await merchantIdForUser(userId);
+    const result = await db.transaction(async (tx) => {
+      const [merchant] = await tx.select({ dataSource: merchants.dataSource })
+        .from(merchants)
+        .where(eq(merchants.id, merchantId))
+        .for("update");
+      if (!merchant) {
+        throw new AppError(404, "MERCHANT_NOT_FOUND", "Merchant profile not found");
+      }
+      if (merchant.dataSource === "demo") {
+        throw new AppError(409, "DEMO_DATA_ALREADY_CONNECTED", "Demo data is already connected for this merchant");
+      }
+      if (merchant.dataSource === "razorpay_live") {
+        throw new AppError(409, "DATA_SOURCE_ALREADY_CONNECTED", "A live data source is already connected for this merchant");
+      }
+
+      const [{ paymentCount }] = await tx.select({ paymentCount: count() })
+        .from(payments)
+        .where(eq(payments.merchantId, merchantId));
+      if (Number(paymentCount) > 0) {
+        return { generated: false, customers: 0, payments: Number(paymentCount), paymentAttempts: 0 };
+      }
+
+      const generated = {
+        generated: true,
+        ...(await generateDemoData(tx, merchantId))
+      };
+      await tx.update(merchants)
+        .set({ dataSource: 'demo', updatedAt: new Date() })
+        .where(eq(merchants.id, merchantId));
+      return generated;
+    });
+    return result;
+  }
+
   async listForUser(userId: string, query: PaymentListQuery) {
     const merchantId = await merchantIdForUser(userId);
     const filters = this.conditions({ merchantId, query });
