@@ -24,7 +24,7 @@ const strategySchema = z.object({
   }).strict(),
   assumptions: z.array(z.string().min(1).max(500)).max(20),
   risks: z.array(z.string().min(1).max(500)).max(20),
-  confidence: z.number().min(0).max(100),
+  confidence: z.preprocess(normalizeConfidence, z.number().min(0).max(100)),
   reasoning: z.string().min(1).max(4000)
 }).strict();
 
@@ -44,7 +44,7 @@ export class StrategyGenerator {
     let raw: unknown;
     try {
       raw = await this.provider.generateStructured({
-        systemPrompt: 'Return only JSON matching the supplied response schema. Use every property exactly as named. Do not include markdown, explanations, secrets, or personal data.',
+        systemPrompt: 'Return only JSON matching the supplied response schema. Use every property exactly as named. Confidence must be a percentage number from 0 to 100, not a fraction from 0 to 1. Do not include markdown, explanations, secrets, or personal data.',
         userPrompt: JSON.stringify(context),
         responseJsonSchema: strategyResponseSchema
       });
@@ -81,6 +81,18 @@ function normalizeEstimatedRevenueRecovery(value: unknown): unknown {
     .replace(/^(?:[$€£₹]|[A-Za-z]{3})\s*/, '')
     .replace(/\s*(?:[A-Za-z]{3})$/, '');
   return normalized;
+}
+
+function normalizeConfidence(value: unknown): unknown {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) && value >= 0 && value <= 1 ? value * 100 : value;
+  }
+  if (typeof value !== 'string') return value;
+
+  const hasPercentSign = value.includes('%');
+  const confidence = Number(value.replace('%', '').trim());
+  if (!Number.isFinite(confidence)) return value;
+  return !hasPercentSign && confidence >= 0 && confidence <= 1 ? confidence * 100 : confidence;
 }
 
 const strategyResponseSchema: Record<string, unknown> = {
@@ -123,7 +135,7 @@ const strategyResponseSchema: Record<string, unknown> = {
     },
     assumptions: { type: 'array', items: { type: 'string' } },
     risks: { type: 'array', items: { type: 'string' } },
-    confidence: { type: 'number' },
+    confidence: { type: 'number', minimum: 0, maximum: 100 },
     reasoning: { type: 'string' }
   }
 };

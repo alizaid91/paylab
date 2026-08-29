@@ -39,8 +39,8 @@ export function AuthProvider({ children }: Readonly<{ children: React.ReactNode 
 
   useEffect(() => {
     if (hasToken && authQuery.isPending) return;
-    if (session && publicRoute) router.replace("/dashboard");
-    if (session && rootRoute) router.replace("/dashboard");
+    if (session && publicRoute) router.replace("/payments");
+    if (session && rootRoute) router.replace("/payments");
     if (!session && !publicRoute) router.replace("/login");
   }, [authQuery.isPending, hasToken, publicRoute, rootRoute, router, session]);
 

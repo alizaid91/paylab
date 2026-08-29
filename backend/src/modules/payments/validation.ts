@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const paymentListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(25),
+  search: z.string().trim().max(255).optional(),
   status: z.enum(['pending', 'succeeded', 'failed', 'refunded', 'cancelled']).optional(),
   paymentMethod: z.enum(['upi', 'card', 'net_banking']).optional(),
   from: z.coerce.date().optional(),

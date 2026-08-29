@@ -187,6 +187,12 @@ function Detail({ data, id }: { data: Opportunity; id: string }) {
 
       <div className="mt-8 grid gap-4 sm:grid-cols-3">
         <div className="rounded-lg border bg-card p-5">
+          <p className="text-sm text-muted-foreground">Affected revenue</p>
+          <p className="mt-2 text-2xl font-semibold">
+            {money(data.affectedPaymentValue)}
+          </p>
+        </div>
+        <div className="rounded-lg border bg-card p-5">
           <p className="text-sm text-muted-foreground">Opportunity value</p>
           <p className="mt-2 text-2xl font-semibold">
             {money(data.estimatedOpportunityValue)}
@@ -254,24 +260,7 @@ function Detail({ data, id }: { data: Opportunity; id: string }) {
         </div>
         <Evidence evidence={data.evidence} />
       </section>
-
-      <section className="mt-8">
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold">Why It Matters</h2>
-        </div>
-        <div className="rounded-lg border border-accent/20 bg-accent/5 p-6">
-          <p className="text-sm font-medium text-muted-foreground">
-            Potential Revenue Impact
-          </p>
-          <p className="mt-2 text-3xl font-semibold text-accent">
-            {money(data.estimatedOpportunityValue)}
-          </p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Estimated recoverable revenue returned by PAYLAB.
-          </p>
-        </div>
-      </section>
-
+      
       <section className="mt-8">
         <div className="mb-4">
           <h2 className="text-lg font-semibold">Related Strategies</h2>

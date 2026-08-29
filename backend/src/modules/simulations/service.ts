@@ -75,7 +75,10 @@ export class SimulationService {
       return existingSimulation;
     }
 
-    const recoveryRateValue = Number((0.4 + Math.random() * 0.5).toFixed(4));
+    const recoveryRateValue = Number(
+      strategy.configuration.expectedImpact.revenueRecoveryPercentage/100 as number ??
+        (0.4 + Math.random() * 0.5).toFixed(4),
+    );
 
     const [metrics] = await db
       .select({

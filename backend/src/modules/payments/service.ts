@@ -1,6 +1,6 @@
-import { and, asc, count, desc, eq, gte, lte, sql, sum } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, ilike, lte, sql, sum } from 'drizzle-orm';
 import { db } from '../../db/client.js';
-import { merchants, paymentAttempts, payments } from '../../db/schema.js';
+import { customers, merchants, paymentAttempts, payments } from '../../db/schema.js';
 import { AppError } from '../../utils/app-error.js';
 import { merchantIdForUser } from '../../utils/merchant-context.js';
 import type { PaymentListQuery } from './validation.js';
@@ -54,13 +54,53 @@ export class PaymentService {
     const offset = (query.page - 1) * query.pageSize;
     const orderColumn = query.sortBy === 'amount' ? payments.amount : query.sortBy === 'status' ? payments.status : payments.createdAt;
     const order = query.sortOrder === 'asc' ? asc(orderColumn) : desc(orderColumn);
-    const [rows, [{ total }]] = await Promise.all([
-      db.select().from(payments).where(filters).orderBy(order).limit(query.pageSize).offset(offset),
-      db.select({ total: count() }).from(payments).where(filters)
+    const [rows, [{ total }], [summary]] = await Promise.all([
+      db.select({
+        id: payments.id,
+        externalId: payments.externalId,
+        customerId: payments.customerId,
+        customerExternalId: customers.externalId,
+        customerName: customers.name,
+        amount: payments.amount,
+        currency: payments.currency,
+        status: payments.status,
+        paymentMethod: payments.paymentMethod,
+        provider: payments.provider,
+        paidAt: payments.paidAt,
+        createdAt: payments.createdAt,
+        attemptCount: sql<number>`count(${paymentAttempts.id})::int`
+      }).from(payments)
+        .leftJoin(customers, eq(payments.customerId, customers.id))
+        .leftJoin(paymentAttempts, eq(payments.id, paymentAttempts.paymentId))
+        .where(filters)
+        .groupBy(payments.id, customers.externalId, customers.name)
+        .orderBy(order)
+        .limit(query.pageSize)
+        .offset(offset),
+      db.select({ total: count() }).from(payments)
+        .leftJoin(customers, eq(payments.customerId, customers.id))
+        .where(filters),
+      db.select({
+        totalPayments: count(),
+        successfulPayments: sql<number>`count(*) filter (where ${payments.status} = 'succeeded')`,
+        failedPayments: sql<number>`count(*) filter (where ${payments.status} = 'failed')`,
+        totalPaymentValue: sum(payments.amount)
+      }).from(payments)
+        .leftJoin(customers, eq(payments.customerId, customers.id))
+        .where(filters)
     ]);
     const totalItems = Number(total);
+    const totalPayments = Number(summary?.totalPayments ?? 0);
+    const successfulPayments = Number(summary?.successfulPayments ?? 0);
     return {
       items: rows,
+      summary: {
+        totalPayments,
+        successfulPayments,
+        failedPayments: Number(summary?.failedPayments ?? 0),
+        totalPaymentValue: summary?.totalPaymentValue ?? '0',
+        successRate: totalPayments > 0 ? (successfulPayments / totalPayments) * 100 : 0
+      },
       pagination: {
         page: query.page,
         pageSize: query.pageSize,
@@ -74,7 +114,24 @@ export class PaymentService {
 
   async getByIdForUser(userId: string, paymentId: string) {
     const merchantId = await merchantIdForUser(userId);
-    const [payment] = await db.select().from(payments)
+    const [payment] = await db.select({
+      id: payments.id,
+      externalId: payments.externalId,
+      merchantId: payments.merchantId,
+      customerId: payments.customerId,
+      customerExternalId: customers.externalId,
+      customerName: customers.name,
+      amount: payments.amount,
+      currency: payments.currency,
+      status: payments.status,
+      paymentMethod: payments.paymentMethod,
+      provider: payments.provider,
+      paidAt: payments.paidAt,
+      metadata: payments.metadata,
+      createdAt: payments.createdAt,
+      updatedAt: payments.updatedAt
+    }).from(payments)
+      .leftJoin(customers, eq(payments.customerId, customers.id))
       .where(and(eq(payments.id, paymentId), eq(payments.merchantId, merchantId))).limit(1);
     if (!payment) throw new AppError(404, 'PAYMENT_NOT_FOUND', 'Payment not found');
     const attempts = await db.select().from(paymentAttempts)
@@ -107,6 +164,7 @@ export class PaymentService {
 
   private conditions({ merchantId, query }: PaymentFilters) {
     const conditions = [eq(payments.merchantId, merchantId)];
+    if (query.search) conditions.push(sql`(${ilike(payments.externalId, `%${query.search}%`)} or ${ilike(customers.externalId, `%${query.search}%`)})`);
     if (query.status) conditions.push(eq(payments.status, query.status));
     if (query.paymentMethod) conditions.push(eq(payments.paymentMethod, query.paymentMethod));
     if (query.from) conditions.push(gte(payments.createdAt, query.from));

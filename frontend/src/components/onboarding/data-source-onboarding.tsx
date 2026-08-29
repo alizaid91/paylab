@@ -43,7 +43,7 @@ export function DataSourceOnboarding() {
       await queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
 
       if (result.generated || result.payments > 0) {
-        router.replace("/dashboard");
+        router.replace("/payments");
       }
     },
   });
@@ -196,7 +196,7 @@ export function DataSourceOnboarding() {
             {mutation.isSuccess && (
               <p className="mt-4 flex items-center gap-2 text-sm text-emerald-700">
                 <CheckCircle2 className="h-4 w-4" />
-                Payment data is ready. Redirecting to your dashboard...
+                Payment data is ready. Redirecting to payments...
               </p>
             )}
 

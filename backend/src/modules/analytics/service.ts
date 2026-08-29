@@ -45,6 +45,7 @@ export class AnalyticsService {
       totalPaymentVolume: summary?.totalPaymentVolume ?? '0',
       successfulRevenue: summary?.successfulRevenue ?? '0',
       failedPaymentValue: summary?.failedPaymentValue ?? '0',
+      totalTransactions,
       successfulTransactions,
       failedTransactions,
       successRate: percentage(successfulTransactions, totalTransactions),

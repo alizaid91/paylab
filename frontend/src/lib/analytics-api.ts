@@ -4,6 +4,7 @@ export interface AnalyticsOverview {
   totalPaymentVolume: string;
   successfulRevenue: string;
   failedPaymentValue: string;
+  totalTransactions: number;
   successfulTransactions: number;
   failedTransactions: number;
   successRate: number;

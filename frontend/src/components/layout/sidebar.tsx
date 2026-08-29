@@ -8,7 +8,6 @@ import {
   ChevronRight,
   ClipboardList,
   Database,
-  LayoutDashboard,
   Settings,
   Store,
   Target,
@@ -18,7 +17,7 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { cn } from "@/lib/utils";
 
 const navigation = [
-  { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Payments", href: "/payments", icon: Database },
   { label: "Analytics", href: "/analytics", icon: BarChart3 },
   { label: "Opportunities", href: "/opportunities", icon: Target },
   { label: "Executions", href: "/executions", icon: ClipboardList },

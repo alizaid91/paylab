@@ -47,19 +47,20 @@ const title = (value: string) =>
     })
     .join(" ");
 const formatValue = (key: string, value: unknown): string => {
-  if (Array.isArray(value)) return value.map((item) => formatValue(key, item)).join(", ");
+  if (Array.isArray(value))
+    return value.map((item) => formatValue(key, item)).join(", ");
   if (value && typeof value === "object") return readableValue(value);
   if (typeof value === "number") {
-    if (key.toLowerCase().endsWith("ms")) return `${value.toLocaleString("en-IN")} ms`;
+    if (key.toLowerCase().endsWith("ms"))
+      return `${value.toLocaleString("en-IN")} ms`;
     return value.toLocaleString("en-IN");
   }
   const text = String(value ?? "Not provided");
-  return /[_-]/.test(text) || text === text.toUpperCase()
-    ? title(text)
-    : text;
+  return /[_-]/.test(text) || text === text.toUpperCase() ? title(text) : text;
 };
 const readableValue = (value: unknown): string => {
-  if (Array.isArray(value)) return value.map((item) => formatValue("", item)).join(", ");
+  if (Array.isArray(value))
+    return value.map((item) => formatValue("", item)).join(", ");
   if (value && typeof value === "object")
     return Object.entries(value)
       .map(([key, item]) => `${title(key)}: ${formatValue(key, item)}`)
@@ -95,10 +96,10 @@ function StatusBadge({ status }: { status: string }) {
             : status === "queued" || status === "running"
               ? "bg-amber-50 text-amber-700"
               : status === "simulated"
-          ? "bg-violet-50 text-violet-700"
-          : status === "generated"
-            ? "bg-blue-50 text-blue-700"
-            : "bg-slate-100 text-slate-700"
+                ? "bg-violet-50 text-violet-700"
+                : status === "generated"
+                  ? "bg-blue-50 text-blue-700"
+                  : "bg-slate-100 text-slate-700"
       }
     >
       {title(status)}
@@ -132,13 +133,17 @@ function StrategyContent({ strategy, id }: { strategy: Strategy; id: string }) {
   const simulation = useMutation({
     mutationFn: () => simulateStrategy(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["strategies", id, "simulations"] });
+      queryClient.invalidateQueries({
+        queryKey: ["strategies", id, "simulations"],
+      });
       queryClient.invalidateQueries({ queryKey: ["strategies", id] });
     },
   });
   const canSimulate = strategy.status === "generated";
   const canRunAdvisory = strategy.status === "simulated";
-  const canGoToReview = !["draft", "generated", "simulated"].includes(strategy.status);
+  const canGoToReview = !["draft", "generated", "simulated"].includes(
+    strategy.status,
+  );
   const configuration = strategy.configuration;
   const expectedImpact = (configuration.expectedImpact ?? {}) as Record<
     string,
@@ -158,7 +163,8 @@ function StrategyContent({ strategy, id }: { strategy: Strategy; id: string }) {
   const displaySimulation =
     strategy.status === "simulated"
       ? completedSimulation
-      : simulation.data ?? completedSimulation;
+      : (simulation.data ?? completedSimulation);
+  const simulationInput = displaySimulation?.input;
   const simulationOutput = displaySimulation?.output;
   const execution = executions.data?.find(
     (item) => item.execution.strategyId === id,
@@ -358,7 +364,8 @@ function StrategyContent({ strategy, id }: { strategy: Strategy; id: string }) {
         </div>
         <div className="rounded-lg border bg-card p-5">
           <p className="mb-6 text-sm text-muted-foreground">
-            PAYLAB generates a recovery assumption automatically for this strategy.
+            PAYLAB generates a recovery assumption automatically for this
+            strategy.
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <Button
@@ -370,9 +377,14 @@ function StrategyContent({ strategy, id }: { strategy: Strategy; id: string }) {
               ) : (
                 <Play className="mr-2 h-4 w-4" />
               )}
-              {simulation.isPending ? "Running simulation..." : "Run Simulation"}
+              {simulation.isPending
+                ? "Running simulation..."
+                : "Run Simulation"}
             </Button>
-            <ArrowRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            <ArrowRight
+              className="h-4 w-4 text-muted-foreground"
+              aria-hidden="true"
+            />
             <Button
               onClick={() => router.push(`/strategies/${id}/review`)}
               disabled={!canRunAdvisory}
@@ -380,7 +392,10 @@ function StrategyContent({ strategy, id }: { strategy: Strategy; id: string }) {
               <Sparkles className="mr-2 h-4 w-4" />
               Run Advisory Review
             </Button>
-            <ArrowRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            <ArrowRight
+              className="h-4 w-4 text-muted-foreground"
+              aria-hidden="true"
+            />
             <Button
               variant="outline"
               onClick={() => router.push(`/strategies/${id}/review`)}
@@ -401,27 +416,27 @@ function StrategyContent({ strategy, id }: { strategy: Strategy; id: string }) {
           {strategy.status !== "simulated" &&
             simulationOutput &&
             displaySimulation && (
-            <SimulationComparison simulation={displaySimulation} />
+              <SimulationComparison simulation={displaySimulation} />
             )}
         </div>
       </section>
-      <section className="mt-8 rounded-lg border border-accent/20 bg-green-200 px-6 p-3">
-          {simulationOutput ? (
-            <>
-              <p className="text-sm font-medium text-muted-foreground">
-                Potential Revenue Recovery
-              </p>
-              <p className="mt-2 text-3xl font-semibold text-accent">
-                {money(simulationOutput.potentialRevenueRecovery)}
-              </p>
-            </>
-          ) : (
-            <p className="text-sm text-black">
-              A completed simulation is available for advisory review.
+      {strategy.status === "simulated" &&
+        simulationOutput &&
+        displaySimulation && (
+          <section className="mt-8 rounded-lg border border-accent/20 bg-green-200 px-6 p-3">
+            <p className="text-sm font-medium text-muted-foreground">
+              Potential Revenue Recovery
             </p>
-          )}
-        </section>
-      {strategy.status === "simulated" ? (
+            <p className="mt-2 text-3xl font-semibold text-accent">
+              {money(simulationOutput.potentialRevenueRecovery)}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Recovery Rate:{" "}
+              {percent(Number(simulationInput?.recoveryRate ?? 0) * 100)}
+            </p>
+          </section>
+        )}
+      {strategy.status === "simulated" && (
         <section className="mt-4 rounded-lg border bg-card p-5">
           <h2 className="text-lg font-semibold">Simulation Comparison</h2>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -441,14 +456,6 @@ function StrategyContent({ strategy, id }: { strategy: Strategy; id: string }) {
             </p>
           )}
         </section>
-      ) : (
-        <section className="mt-4">
-          <SimulationHistory
-            simulations={simulations.data ?? []}
-            isLoading={simulations.isLoading}
-            isError={simulations.isError}
-          />
-        </section>
       )}
       {execution && (
         <section className="mt-8 rounded-lg border border-accent/20 bg-accent/5 p-6">
@@ -464,59 +471,6 @@ function StrategyContent({ strategy, id }: { strategy: Strategy; id: string }) {
         </section>
       )}
     </>
-  );
-}
-
-function SimulationHistory({
-  simulations,
-  isLoading,
-  isError,
-}: {
-  simulations: Simulation[];
-  isLoading: boolean;
-  isError: boolean;
-}) {
-  if (isLoading) {
-    return <div className="h-36 animate-pulse rounded-lg bg-muted" />;
-  }
-  if (isError) {
-    return <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">Unable to load past simulations.</div>;
-  }
-  if (!simulations.length) {
-    return <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">No simulations have been run yet.</div>;
-  }
-
-  return (
-    <div className="overflow-x-auto rounded-lg border bg-card">
-      <table className="w-full min-w-[900px] text-left text-sm">
-        <caption className="sr-only">Past simulations for this strategy</caption>
-        <thead className="border-b bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
-          <tr>
-            <th className="px-5 py-3 font-medium">Status</th>
-            <th className="px-5 py-3 font-medium">Recovery rate</th>
-            <th className="px-5 py-3 font-medium">Projected success rate</th>
-            <th className="px-5 py-3 font-medium">Projected revenue</th>
-            <th className="px-5 py-3 font-medium">Potential recovery</th>
-            <th className="px-5 py-3 font-medium">Created</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y">
-          {simulations.map((item) => {
-            const output = item.output;
-            return (
-              <tr key={item.id} className="hover:bg-muted/30">
-                <td className="px-5 py-4"><StatusBadge status={item.status} /></td>
-                <td className="px-5 py-4">{item.input.recoveryRate !== undefined ? percent(Number(item.input.recoveryRate) * 100) : "Not provided"}</td>
-                <td className="px-5 py-4">{output ? percent(output.projectedSuccessRate) : item.projectedConversionRate ? percent(Number(item.projectedConversionRate)) : "Not available"}</td>
-                <td className="px-5 py-4">{output?.projectedRevenue || item.projectedRevenue ? money(output?.projectedRevenue ?? item.projectedRevenue ?? "0") : "Not available"}</td>
-                <td className="px-5 py-4 font-semibold text-accent">{output ? money(output.potentialRevenueRecovery) : "Not available"}</td>
-                <td className="whitespace-nowrap px-5 py-4 text-muted-foreground">{new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(item.createdAt))}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
   );
 }
 
