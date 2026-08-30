@@ -12,4 +12,3 @@ strategyRouter.post('/:id/simulate', asyncHandler(controller.simulate));
 strategyRouter.get('/:id/simulations', asyncHandler(controller.listSimulations));
 strategyRouter.post('/:id/advisory-review', rateLimit('ai', env.AI_RATE_LIMIT_WINDOW_MS, env.AI_RATE_LIMIT_MAX), asyncHandler(controller.advisoryReview));
 strategyRouter.post('/:id/approve', asyncHandler(controller.approve));
-strategyRouter.post('/:id/execute', asyncHandler(controller.execute));

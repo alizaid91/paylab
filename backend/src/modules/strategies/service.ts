@@ -9,6 +9,65 @@ import { GeminiAIProvider } from '../../ai/provider.js';
 const generator = new StrategyGenerator(new GeminiAIProvider());
 
 export class StrategyService {
+  async approveForUser(userId: string, strategyId: string) {
+    const merchantId = await merchantIdForUser(userId);
+    return db.transaction(async (tx) => {
+      const [strategy] = await tx.select().from(strategies).where(and(
+        eq(strategies.id, strategyId),
+        eq(strategies.merchantId, merchantId),
+      )).limit(1);
+      if (!strategy) throw new AppError(404, 'STRATEGY_NOT_FOUND', 'Strategy not found');
+      if (strategy.status !== 'policy_approved') {
+        throw new AppError(409, 'STRATEGY_NOT_APPROVABLE', 'Strategy must pass policy checks before merchant approval');
+      }
+
+      const [simulation] = await tx.select().from(simulations).where(and(
+        eq(simulations.strategyId, strategyId),
+        eq(simulations.merchantId, merchantId),
+        eq(simulations.status, 'completed'),
+      )).orderBy(desc(simulations.createdAt)).limit(1);
+      if (!simulation) throw new AppError(409, 'SIMULATION_REQUIRED', 'A completed simulation is required');
+
+      const [advisory] = await tx.select().from(advisoryReviews).where(and(
+        eq(advisoryReviews.simulationId, simulation.id),
+        eq(advisoryReviews.merchantId, merchantId),
+      )).orderBy(desc(advisoryReviews.createdAt)).limit(1);
+      if (!advisory) throw new AppError(409, 'ADVISORY_REVIEW_REQUIRED', 'An advisory review is required');
+
+      const [policy] = await tx.select().from(policyResults).where(and(
+        eq(policyResults.simulationId, simulation.id),
+        eq(policyResults.merchantId, merchantId),
+        eq(policyResults.status, 'passed'),
+      )).orderBy(desc(policyResults.evaluatedAt)).limit(1);
+      if (!policy) throw new AppError(409, 'POLICY_APPROVAL_REQUIRED', 'A passed policy check is required');
+
+      const approvedAt = new Date();
+      const [approved] = await tx.update(strategies).set({
+        status: 'merchant_approved',
+        approvedByUserId: userId,
+        updatedAt: approvedAt,
+      }).where(and(
+        eq(strategies.id, strategyId),
+        eq(strategies.status, 'policy_approved'),
+      )).returning();
+      if (!approved) throw new AppError(409, 'STRATEGY_NOT_APPROVABLE', 'Strategy approval state changed; retry the request');
+
+      await tx.insert(auditLogs).values({
+        merchantId,
+        actorUserId: userId,
+        entityType: 'strategy',
+        entityId: strategyId,
+        action: 'strategy_approved',
+        metadata: {
+          simulationId: simulation.id,
+          policyResultId: policy.id,
+          advisoryReviewId: advisory.id,
+        },
+      });
+      return approved;
+    });
+  }
+
   async getByIdForUser(userId: string, strategyId: string) {
     const merchantId = await merchantIdForUser(userId);
     const [context] = await db.select({

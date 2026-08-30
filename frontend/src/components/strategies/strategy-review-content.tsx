@@ -20,7 +20,6 @@ import { ErrorState } from "@/components/states/error-state";
 import {
   getStrategy,
   getStrategySimulations,
-  getExecutions,
   simulateStrategy,
   type Simulation,
   type Strategy,
@@ -127,10 +126,6 @@ function StrategyContent({ strategy, id }: { strategy: Strategy; id: string }) {
     queryKey: ["strategies", id, "simulations"],
     queryFn: () => getStrategySimulations(id),
   });
-  const executions = useQuery({
-    queryKey: ["executions"],
-    queryFn: getExecutions,
-  });
   const simulation = useMutation({
     mutationFn: () => simulateStrategy(id),
     onSuccess: () => {
@@ -166,9 +161,6 @@ function StrategyContent({ strategy, id }: { strategy: Strategy; id: string }) {
       ? completedSimulation
       : (simulation.data ?? completedSimulation);
   const simulationOutput = displaySimulation?.output;
-  const execution = executions.data?.find(
-    (item) => item.execution.strategyId === id,
-  );
 
   const opportunityName = strategy.opportunity?.name ?? "Opportunity";
   const objective = String(configuration.objective ?? "No objective provided.");
@@ -599,20 +591,6 @@ function StrategyContent({ strategy, id }: { strategy: Strategy; id: string }) {
         </p>
       </section>
 
-      {execution && (
-        <section className="rounded-2xl border border-accent/20 bg-accent/5 p-6">
-          <h2 className="text-xl font-semibold">Execution status</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            This strategy has moved beyond simulation and a result record
-            exists.
-          </p>
-          <Button className="mt-5 bg-black text-white" asChild>
-            <Link href={`/executions/${execution.execution.id}`}>
-              View execution result
-            </Link>
-          </Button>
-        </section>
-      )}
     </div>
   );
 }

@@ -34,8 +34,6 @@ export const simulationStatusEnum = pgEnum('simulation_status', ['queued', 'runn
 export const advisoryStatusEnum = pgEnum('advisory_status', ['pending', 'approved', 'rejected', 'needs_review']);
 export const policyStatusEnum = pgEnum('policy_status', ['draft', 'active', 'inactive', 'archived']);
 export const policyResultStatusEnum = pgEnum('policy_result_status', ['pending', 'passed', 'failed', 'overridden']);
-export const executionStatusEnum = pgEnum('execution_status', ['pending_approval', 'approved', 'queued', 'running', 'completed', 'failed', 'cancelled']);
-export const executionResultStatusEnum = pgEnum('execution_result_status', ['succeeded', 'failed', 'partial']);
 export const recoveryCampaignStatusEnum = pgEnum('recovery_campaign_status', ['draft', 'approved', 'queued', 'running', 'paused', 'completed', 'stopped_by_rule', 'cancelled', 'failed']);
 export const recoveryExecutionStatusEnum = pgEnum('recovery_execution_status', ['pending', 'eligibility_check', 'scheduled', 'executing', 'success', 'failed', 'skipped', 'stopped']);
 export const auditEntityTypeEnum = pgEnum('audit_entity_type', ['payment', 'opportunity', 'strategy', 'simulation', 'advisory_review', 'policy', 'execution', 'recovery_campaign', 'recovery_execution']);
@@ -226,27 +224,6 @@ export const policyResults = pgTable('policy_results', {
   index('policy_results_advisory_review_id_idx').on(table.advisoryReviewId)
 ]);
 
-export const executions = pgTable('executions', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  merchantId: uuid('merchant_id').notNull().references(() => merchants.id, { onDelete: 'cascade' }),
-  strategyId: uuid('strategy_id').notNull().references(() => strategies.id, { onDelete: 'restrict' }),
-  opportunityId: uuid('opportunity_id').references(() => opportunities.id, { onDelete: 'set null' }),
-  policyResultId: uuid('policy_result_id').references(() => policyResults.id, { onDelete: 'set null' }),
-  approvedByUserId: uuid('approved_by_user_id').references(() => users.id, { onDelete: 'set null' }),
-  status: executionStatusEnum('status').notNull().default('pending_approval'),
-  affectedTransactionCount: integer('affected_transaction_count').notNull().default(0),
-  expectedRecovery: numeric('expected_recovery', { precision: 19, scale: 4 }).notNull().default('0'),
-  scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
-  startedAt: timestamp('started_at', { withTimezone: true }),
-  completedAt: timestamp('completed_at', { withTimezone: true }),
-  ...timestamps
-}, (table) => [
-  index('executions_merchant_status_idx').on(table.merchantId, table.status),
-  index('executions_strategy_id_idx').on(table.strategyId),
-  index('executions_scheduled_at_idx').on(table.merchantId, table.scheduledAt),
-  uniqueIndex('executions_strategy_unique').on(table.merchantId, table.strategyId)
-]);
-
 export const recoveryCampaigns = pgTable('recovery_campaigns', {
   id: uuid('id').defaultRandom().primaryKey(),
   merchantId: uuid('merchant_id').notNull().references(() => merchants.id, { onDelete: 'cascade' }),
@@ -298,23 +275,6 @@ export const recoveryExecutions = pgTable('recovery_executions', {
   index('recovery_executions_strategy_idx').on(table.strategyId)
 ]);
 
-export const executionResults = pgTable('execution_results', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  merchantId: uuid('merchant_id').notNull().references(() => merchants.id, { onDelete: 'cascade' }),
-  executionId: uuid('execution_id').notNull().references(() => executions.id, { onDelete: 'cascade' }),
-  status: executionResultStatusEnum('status').notNull(),
-  resultType: varchar('result_type', { length: 100 }).notNull(),
-  actualRevenue: numeric('actual_revenue', { precision: 19, scale: 4 }),
-  actualRecovery: numeric('actual_recovery', { precision: 19, scale: 4 }),
-  details: jsonb('details').$type<Record<string, unknown>>().notNull().default({}),
-  errorCode: varchar('error_code', { length: 100 }),
-  errorMessage: text('error_message'),
-  ...timestamps
-}, (table) => [
-  uniqueIndex('execution_results_execution_unique').on(table.executionId),
-  index('execution_results_merchant_status_idx').on(table.merchantId, table.status)
-]);
-
 export const auditLogs = pgTable('audit_logs', {
   id: uuid('id').defaultRandom().primaryKey(),
   merchantId: uuid('merchant_id').notNull().references(() => merchants.id, { onDelete: 'cascade' }),
@@ -336,7 +296,6 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   approvedStrategies: many(strategies, { relationName: 'strategyApprover' }),
   reviewedAdvisories: many(advisoryReviews),
   createdPolicies: many(policies),
-  approvedExecutions: many(executions),
   auditLogs: many(auditLogs)
 }));
 
@@ -351,9 +310,7 @@ export const merchantsRelations = relations(merchants, ({ one, many }) => ({
   advisoryReviews: many(advisoryReviews),
   policies: many(policies),
   policyResults: many(policyResults),
-  executions: many(executions),
   recoveryCampaigns: many(recoveryCampaigns),
-  executionResults: many(executionResults),
   auditLogs: many(auditLogs)
 }));
 
@@ -378,7 +335,6 @@ export const opportunitiesRelations = relations(opportunities, ({ one, many }) =
   merchant: one(merchants, { fields: [opportunities.merchantId], references: [merchants.id] }),
   payment: one(payments, { fields: [opportunities.paymentId], references: [payments.id] }),
   strategies: many(strategies),
-  executions: many(executions),
   recoveryCampaigns: many(recoveryCampaigns)
 }));
 
@@ -388,7 +344,6 @@ export const strategiesRelations = relations(strategies, ({ one, many }) => ({
   creator: one(users, { fields: [strategies.createdByUserId], references: [users.id], relationName: 'strategyCreator' }),
   approver: one(users, { fields: [strategies.approvedByUserId], references: [users.id], relationName: 'strategyApprover' }),
   simulations: many(simulations),
-  executions: many(executions),
   recoveryCampaigns: many(recoveryCampaigns)
 }));
 
@@ -417,16 +372,6 @@ export const policyResultsRelations = relations(policyResults, ({ one, many }) =
   policy: one(policies, { fields: [policyResults.policyId], references: [policies.id] }),
   advisoryReview: one(advisoryReviews, { fields: [policyResults.advisoryReviewId], references: [advisoryReviews.id] }),
   simulation: one(simulations, { fields: [policyResults.simulationId], references: [simulations.id] }),
-  executions: many(executions)
-}));
-
-export const executionsRelations = relations(executions, ({ one, many }) => ({
-  merchant: one(merchants, { fields: [executions.merchantId], references: [merchants.id] }),
-  strategy: one(strategies, { fields: [executions.strategyId], references: [strategies.id] }),
-  opportunity: one(opportunities, { fields: [executions.opportunityId], references: [opportunities.id] }),
-  policyResult: one(policyResults, { fields: [executions.policyResultId], references: [policyResults.id] }),
-  approver: one(users, { fields: [executions.approvedByUserId], references: [users.id] }),
-  result: one(executionResults)
 }));
 
 export const recoveryCampaignsRelations = relations(recoveryCampaigns, ({ one, many }) => ({
@@ -443,10 +388,6 @@ export const recoveryExecutionsRelations = relations(recoveryExecutions, ({ one 
   strategy: one(strategies, { fields: [recoveryExecutions.strategyId], references: [strategies.id] })
 }));
 
-export const executionResultsRelations = relations(executionResults, ({ one }) => ({
-  merchant: one(merchants, { fields: [executionResults.merchantId], references: [merchants.id] }),
-  execution: one(executions, { fields: [executionResults.executionId], references: [executions.id] })
-}));
 
 export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
   merchant: one(merchants, { fields: [auditLogs.merchantId], references: [merchants.id] }),

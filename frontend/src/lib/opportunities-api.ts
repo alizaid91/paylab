@@ -146,30 +146,6 @@ export interface PolicyCheckResult {
   };
 }
 
-export interface ExecutionResult {
-  id: string;
-  status: string;
-  resultType: string;
-  actualRevenue: string | null;
-  actualRecovery: string | null;
-  details: Record<string, unknown>;
-  errorMessage: string | null;
-}
-
-export interface Execution {
-  id: string;
-  strategyId: string;
-  opportunityId: string | null;
-  status: string;
-  affectedTransactionCount: number;
-  expectedRecovery: string;
-  startedAt: string | null;
-  completedAt: string | null;
-  createdAt: string;
-  result: ExecutionResult | null;
-  strategy?: { id: string; name: string };
-}
-
 export interface RecoveryCampaign {
   id: string;
   merchantId: string;
@@ -289,21 +265,6 @@ export function approveStrategy(id: string) {
     method: "POST",
     body: JSON.stringify({})
   }).then((response) => response.data);
-}
-
-export function executeStrategy(id: string) {
-  return apiClient<ApiResponse<{ execution: Execution; result: ExecutionResult }>>(`/strategies/${id}/execute`, {
-    method: "POST",
-    body: JSON.stringify({})
-  }).then((response) => response.data);
-}
-
-export function getExecutions() {
-  return apiClient<ApiResponse<Array<{ execution: Execution; result: ExecutionResult | null; strategy: { id: string; name: string } }>>>("/executions").then((response) => response.data);
-}
-
-export function getExecution(id: string) {
-  return apiClient<ApiResponse<{ execution: Execution; result: ExecutionResult | null; strategy: { id: string; name: string } }>>(`/executions/${id}`).then((response) => response.data);
 }
 
 export function getAuditLogs(strategyId?: string, executionId?: string, campaignId?: string) {

@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import {
   BarChart3,
   ChevronRight,
-  ClipboardList,
   Database,
   Megaphone,
   Settings,
@@ -21,7 +20,6 @@ const navigation = [
   { label: "Payments", href: "/payments", icon: Database },
   { label: "Analytics", href: "/analytics", icon: BarChart3 },
   { label: "Opportunities", href: "/opportunities", icon: Target },
-  { label: "Executions", href: "/executions", icon: ClipboardList },
   { label: "Recovery Campaigns", href: "/campaigns", icon: Megaphone },
   { label: "Data Source", href: "/data-source", icon: Database },
   { label: "Settings", href: "/settings", icon: Settings },

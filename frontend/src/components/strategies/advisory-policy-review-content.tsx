@@ -17,7 +17,6 @@ import { Button } from "@/components/ui/button";
 import {
   getStrategy,
   getStrategySimulations,
-  getExecutions,
   runAdvisoryReview,
   runPolicyCheck,
   type AdvisoryReview,
@@ -274,10 +273,6 @@ export default function AdvisoryPolicyReviewContent({ id }: { id: string }) {
     queryKey: ["strategies", id, "simulations"],
     queryFn: () => getStrategySimulations(id),
   });
-  const executions = useQuery({
-    queryKey: ["executions"],
-    queryFn: getExecutions,
-  });
   const [advisory, setAdvisory] = useState<AdvisoryReview | null>(null);
   const [policy, setPolicy] = useState<PolicyCheckResult | null>(null);
   const [selectedSimulationId, setSelectedSimulationId] = useState("");
@@ -352,11 +347,6 @@ export default function AdvisoryPolicyReviewContent({ id }: { id: string }) {
     approvalComplete,
     executionComplete,
   ];
-  const execution = executions.data?.find(
-    (item) => item.execution.strategyId === id,
-  );
-  const isExecuted =
-    strategyStatus === "completed" || Boolean(execution);
   return (
     <ContentContainer>
       <div className="border-b pb-6">
@@ -497,7 +487,7 @@ export default function AdvisoryPolicyReviewContent({ id }: { id: string }) {
         )}
         {policy && <PolicyResult result={policy} />}
       </section>
-      {!isExecuted && (
+      {strategyStatus !== "completed" && (
         <section className="mt-10 rounded-lg border p-6">
           <h2 className="text-lg font-semibold">Next Action</h2>
           {!advisory || !policy ? (
@@ -525,23 +515,6 @@ export default function AdvisoryPolicyReviewContent({ id }: { id: string }) {
                 </Link>
               </Button>
             </div>
-          )}
-        </section>
-      )}
-      {isExecuted && (
-        <section className="mt-10 rounded-lg border border-accent/20 bg-accent/5 p-6">
-          <h2 className="text-lg font-semibold">Execution Result</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {execution
-              ? "This strategy has been executed. View the backend execution result and audit timeline."
-              : "This strategy is marked as executed. Loading its backend execution result..."}
-          </p>
-          {execution && (
-            <Button className="mt-5 bg-black text-white">
-              <Link href={`/executions/${execution.execution.id}`}>
-                View Execution Result
-              </Link>
-            </Button>
           )}
         </section>
       )}
