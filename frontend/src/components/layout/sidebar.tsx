@@ -8,6 +8,7 @@ import {
   ChevronRight,
   ClipboardList,
   Database,
+  Megaphone,
   Settings,
   Store,
   Target,
@@ -21,6 +22,7 @@ const navigation = [
   { label: "Analytics", href: "/analytics", icon: BarChart3 },
   { label: "Opportunities", href: "/opportunities", icon: Target },
   { label: "Executions", href: "/executions", icon: ClipboardList },
+  { label: "Recovery Campaigns", href: "/campaigns", icon: Megaphone },
   { label: "Data Source", href: "/data-source", icon: Database },
   { label: "Settings", href: "/settings", icon: Settings },
 ];

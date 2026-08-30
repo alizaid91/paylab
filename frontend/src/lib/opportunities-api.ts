@@ -170,6 +170,30 @@ export interface Execution {
   strategy?: { id: string; name: string };
 }
 
+export interface RecoveryCampaign {
+  id: string;
+  merchantId: string;
+  opportunityId: string;
+  strategyId: string;
+  status: string;
+  strategySnapshot: Record<string, unknown>;
+  targetCount: number;
+  eligibleCount: number;
+  processedCount: number;
+  successfulCount: number;
+  failedCount: number;
+  skippedCount: number;
+  revenueAtRisk: string;
+  expectedRecoveryAmount: string;
+  recoveredAmount: string;
+  stoppingReason: string | null;
+  approvedAt: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AuditLog {
   id: string;
   actorUserId: string | null;
@@ -197,6 +221,42 @@ export interface Policy {
 
 export function getStrategy(id: string) {
   return apiClient<ApiResponse<Strategy>>(`/strategies/${id}`).then((response) => response.data);
+}
+
+export function createRecoveryCampaign(strategyId: string) {
+  return apiClient<ApiResponse<RecoveryCampaign>>('/recovery-campaigns', {
+    method: 'POST',
+    body: JSON.stringify({ strategyId })
+  }).then((response) => response.data);
+}
+
+export function getRecoveryCampaign(id: string) {
+  return apiClient<ApiResponse<RecoveryCampaign>>(`/recovery-campaigns/${id}`).then((response) => response.data);
+}
+
+export function getRecoveryCampaigns() {
+  return apiClient<ApiResponse<RecoveryCampaign[]>>('/recovery-campaigns').then((response) => response.data);
+}
+
+export function startRecoveryCampaign(id: string) {
+  return apiClient<ApiResponse<RecoveryCampaign>>(`/recovery-campaigns/${id}/start`, {
+    method: 'POST',
+    body: JSON.stringify({})
+  }).then((response) => response.data);
+}
+
+export function stopRecoveryCampaign(id: string, reason = 'MERCHANT_CANCELLATION') {
+  return apiClient<ApiResponse<RecoveryCampaign>>(`/recovery-campaigns/${id}/stop`, {
+    method: 'POST',
+    body: JSON.stringify({ reason })
+  }).then((response) => response.data);
+}
+
+export function resumeRecoveryCampaign(id: string) {
+  return apiClient<ApiResponse<RecoveryCampaign>>(`/recovery-campaigns/${id}/resume`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  }).then((response) => response.data);
 }
 
 export function simulateStrategy(id: string) {
@@ -246,10 +306,11 @@ export function getExecution(id: string) {
   return apiClient<ApiResponse<{ execution: Execution; result: ExecutionResult | null; strategy: { id: string; name: string } }>>(`/executions/${id}`).then((response) => response.data);
 }
 
-export function getAuditLogs(strategyId?: string, executionId?: string) {
+export function getAuditLogs(strategyId?: string, executionId?: string, campaignId?: string) {
   const params = new URLSearchParams();
   if (strategyId) params.set("strategyId", strategyId);
   if (executionId) params.set("executionId", executionId);
+  if (campaignId) params.set("campaignId", campaignId);
   const query = params.toString() ? `?${params.toString()}` : "";
   return apiClient<ApiResponse<AuditLog[]>>(`/audit-logs${query}`).then((response) => response.data);
 }

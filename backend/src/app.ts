@@ -18,6 +18,7 @@ import { opportunityRouter } from './modules/opportunities/routes.js';
 import { strategyRouter } from './modules/strategies/routes.js';
 import { policyRouter } from './modules/policies/routes.js';
 import { executionRouter } from './modules/executions/routes.js';
+import { recoveryCampaignRouter } from './modules/recovery-campaigns/routes.js';
 import { auditLogRouter } from './modules/audit-logs/routes.js';
 
 export function createApp(dependencies?: {
@@ -39,6 +40,7 @@ export function createApp(dependencies?: {
   app.use('/api/strategies', strategyRouter);
   app.use('/api', policyRouter);
   app.use('/api/executions', executionRouter);
+  app.use('/api/recovery-campaigns', recoveryCampaignRouter);
   app.use('/api/audit-logs', auditLogRouter);
 
   app.get('/health', (_req, res) => {

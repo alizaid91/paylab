@@ -75,10 +75,17 @@ export class SimulationService {
       return existingSimulation;
     }
 
-    const recoveryRateValue = Number(
-      strategy.configuration.expectedImpact.revenueRecoveryPercentage/100 as number ??
-        (0.4 + Math.random() * 0.5).toFixed(4),
+    const expectedImpact = objectValue(
+      strategy.configuration && typeof strategy.configuration === "object"
+        ? (strategy.configuration as Record<string, unknown>).expectedImpact
+        : {},
+    ) as { revenueRecoveryPercentage?: number | string };
+    const configuredRecoveryRate = Number(
+      expectedImpact.revenueRecoveryPercentage ?? 0,
     );
+    const recoveryRateValue = configuredRecoveryRate > 0
+      ? configuredRecoveryRate / 100
+      : 0.4 + Math.random() * 0.5;
 
     const [metrics] = await db
       .select({
@@ -266,6 +273,12 @@ export class SimulationService {
       )
       .orderBy(desc(simulations.createdAt));
   }
+}
+
+function objectValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }
 
 function percentage(numerator: number, denominator: number): number {

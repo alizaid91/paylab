@@ -50,6 +50,13 @@
       "when": 1787915462751,
       "tag": "0006_dear_rawhide_kid",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788083888210,
+      "tag": "0007_shiny_starjammers",
+      "breakpoints": true
     }
   ]
 }

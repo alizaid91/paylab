@@ -36,7 +36,9 @@ export const policyStatusEnum = pgEnum('policy_status', ['draft', 'active', 'ina
 export const policyResultStatusEnum = pgEnum('policy_result_status', ['pending', 'passed', 'failed', 'overridden']);
 export const executionStatusEnum = pgEnum('execution_status', ['pending_approval', 'approved', 'queued', 'running', 'completed', 'failed', 'cancelled']);
 export const executionResultStatusEnum = pgEnum('execution_result_status', ['succeeded', 'failed', 'partial']);
-export const auditEntityTypeEnum = pgEnum('audit_entity_type', ['payment', 'opportunity', 'strategy', 'simulation', 'advisory_review', 'policy', 'execution']);
+export const recoveryCampaignStatusEnum = pgEnum('recovery_campaign_status', ['draft', 'approved', 'queued', 'running', 'paused', 'completed', 'stopped_by_rule', 'cancelled', 'failed']);
+export const recoveryExecutionStatusEnum = pgEnum('recovery_execution_status', ['pending', 'eligibility_check', 'scheduled', 'executing', 'success', 'failed', 'skipped', 'stopped']);
+export const auditEntityTypeEnum = pgEnum('audit_entity_type', ['payment', 'opportunity', 'strategy', 'simulation', 'advisory_review', 'policy', 'execution', 'recovery_campaign', 'recovery_execution']);
 
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -245,6 +247,57 @@ export const executions = pgTable('executions', {
   uniqueIndex('executions_strategy_unique').on(table.merchantId, table.strategyId)
 ]);
 
+export const recoveryCampaigns = pgTable('recovery_campaigns', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  merchantId: uuid('merchant_id').notNull().references(() => merchants.id, { onDelete: 'cascade' }),
+  opportunityId: uuid('opportunity_id').notNull().references(() => opportunities.id, { onDelete: 'restrict' }),
+  strategyId: uuid('strategy_id').notNull().references(() => strategies.id, { onDelete: 'restrict' }),
+  status: recoveryCampaignStatusEnum('status').notNull().default('draft'),
+  strategySnapshot: jsonb('strategy_snapshot').$type<Record<string, unknown>>().notNull().default({}),
+  targetCount: integer('target_count').notNull().default(0),
+  eligibleCount: integer('eligible_count').notNull().default(0),
+  processedCount: integer('processed_count').notNull().default(0),
+  successfulCount: integer('successful_count').notNull().default(0),
+  failedCount: integer('failed_count').notNull().default(0),
+  skippedCount: integer('skipped_count').notNull().default(0),
+  revenueAtRisk: numeric('revenue_at_risk', { precision: 19, scale: 4 }).notNull().default('0'),
+  expectedRecoveryAmount: numeric('expected_recovery_amount', { precision: 19, scale: 4 }).notNull().default('0'),
+  recoveredAmount: numeric('recovered_amount', { precision: 19, scale: 4 }).notNull().default('0'),
+  stoppingReason: text('stopping_reason'),
+  approvedAt: timestamp('approved_at', { withTimezone: true }),
+  startedAt: timestamp('started_at', { withTimezone: true }),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  ...timestamps
+}, (table) => [
+  index('recovery_campaigns_merchant_status_idx').on(table.merchantId, table.status),
+  index('recovery_campaigns_opportunity_id_idx').on(table.opportunityId),
+  index('recovery_campaigns_strategy_id_idx').on(table.strategyId),
+  uniqueIndex('recovery_campaigns_strategy_unique').on(table.merchantId, table.strategyId)
+]);
+
+export const recoveryExecutions = pgTable('recovery_executions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  merchantId: uuid('merchant_id').notNull().references(() => merchants.id, { onDelete: 'cascade' }),
+  campaignId: uuid('campaign_id').notNull().references(() => recoveryCampaigns.id, { onDelete: 'cascade' }),
+  paymentId: uuid('payment_id').notNull().references(() => payments.id, { onDelete: 'cascade' }),
+  strategyId: uuid('strategy_id').notNull().references(() => strategies.id, { onDelete: 'restrict' }),
+  status: recoveryExecutionStatusEnum('status').notNull().default('pending'),
+  attemptNumber: integer('attempt_number').notNull().default(1),
+  idempotencyKey: varchar('idempotency_key', { length: 255 }).notNull(),
+  amount: numeric('amount', { precision: 19, scale: 4 }).notNull().default('0'),
+  recoveredAmount: numeric('recovered_amount', { precision: 19, scale: 4 }).notNull().default('0'),
+  failureReason: varchar('failure_reason', { length: 255 }),
+  skipReason: varchar('skip_reason', { length: 255 }),
+  startedAt: timestamp('started_at', { withTimezone: true }),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  ...timestamps
+}, (table) => [
+  uniqueIndex('recovery_executions_idempotency_unique').on(table.idempotencyKey),
+  index('recovery_executions_campaign_status_idx').on(table.campaignId, table.status),
+  index('recovery_executions_payment_idx').on(table.paymentId),
+  index('recovery_executions_strategy_idx').on(table.strategyId)
+]);
+
 export const executionResults = pgTable('execution_results', {
   id: uuid('id').defaultRandom().primaryKey(),
   merchantId: uuid('merchant_id').notNull().references(() => merchants.id, { onDelete: 'cascade' }),
@@ -299,6 +352,7 @@ export const merchantsRelations = relations(merchants, ({ one, many }) => ({
   policies: many(policies),
   policyResults: many(policyResults),
   executions: many(executions),
+  recoveryCampaigns: many(recoveryCampaigns),
   executionResults: many(executionResults),
   auditLogs: many(auditLogs)
 }));
@@ -324,7 +378,8 @@ export const opportunitiesRelations = relations(opportunities, ({ one, many }) =
   merchant: one(merchants, { fields: [opportunities.merchantId], references: [merchants.id] }),
   payment: one(payments, { fields: [opportunities.paymentId], references: [payments.id] }),
   strategies: many(strategies),
-  executions: many(executions)
+  executions: many(executions),
+  recoveryCampaigns: many(recoveryCampaigns)
 }));
 
 export const strategiesRelations = relations(strategies, ({ one, many }) => ({
@@ -333,7 +388,8 @@ export const strategiesRelations = relations(strategies, ({ one, many }) => ({
   creator: one(users, { fields: [strategies.createdByUserId], references: [users.id], relationName: 'strategyCreator' }),
   approver: one(users, { fields: [strategies.approvedByUserId], references: [users.id], relationName: 'strategyApprover' }),
   simulations: many(simulations),
-  executions: many(executions)
+  executions: many(executions),
+  recoveryCampaigns: many(recoveryCampaigns)
 }));
 
 export const simulationsRelations = relations(simulations, ({ one, many }) => ({
@@ -373,6 +429,20 @@ export const executionsRelations = relations(executions, ({ one, many }) => ({
   result: one(executionResults)
 }));
 
+export const recoveryCampaignsRelations = relations(recoveryCampaigns, ({ one, many }) => ({
+  merchant: one(merchants, { fields: [recoveryCampaigns.merchantId], references: [merchants.id] }),
+  opportunity: one(opportunities, { fields: [recoveryCampaigns.opportunityId], references: [opportunities.id] }),
+  strategy: one(strategies, { fields: [recoveryCampaigns.strategyId], references: [strategies.id] }),
+  executions: many(recoveryExecutions)
+}));
+
+export const recoveryExecutionsRelations = relations(recoveryExecutions, ({ one }) => ({
+  merchant: one(merchants, { fields: [recoveryExecutions.merchantId], references: [merchants.id] }),
+  campaign: one(recoveryCampaigns, { fields: [recoveryExecutions.campaignId], references: [recoveryCampaigns.id] }),
+  payment: one(payments, { fields: [recoveryExecutions.paymentId], references: [payments.id] }),
+  strategy: one(strategies, { fields: [recoveryExecutions.strategyId], references: [strategies.id] })
+}));
+
 export const executionResultsRelations = relations(executionResults, ({ one }) => ({
   merchant: one(merchants, { fields: [executionResults.merchantId], references: [merchants.id] }),
   execution: one(executions, { fields: [executionResults.executionId], references: [executions.id] })
@@ -387,3 +457,5 @@ export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Merchant = typeof merchants.$inferSelect;
 export type NewMerchant = typeof merchants.$inferInsert;
+export type RecoveryCampaign = typeof recoveryCampaigns.$inferSelect;
+export type NewRecoveryCampaign = typeof recoveryCampaigns.$inferInsert;
