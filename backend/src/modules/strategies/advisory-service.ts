@@ -25,9 +25,9 @@ export class AdvisoryService {
 
     const [context] = await db
       .select({
-        strategy: strategies,
-        opportunity: opportunities,
         merchant: merchants,
+        opportunity: opportunities,
+        strategy: strategies,
         simulation: simulations,
       })
       .from(strategies)
@@ -70,13 +70,15 @@ export class AdvisoryService {
     }
 
     const generated = await agent.review({
-      strategy: safeObject(context.strategy.configuration),
-
-      simulation: safeObject(context.simulation.output),
-
+      // merchant: safeObject(context.merchant),
+      
       opportunity: safeObject(context.opportunity),
 
       relevantAnalytics: safeObject(context.opportunity.evidence),
+
+      strategy: safeObject(context.strategy.configuration),
+
+      simulation: safeObject(context.simulation.output),
     });
 
     const status =

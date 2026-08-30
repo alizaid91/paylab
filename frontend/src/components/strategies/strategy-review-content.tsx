@@ -7,6 +7,7 @@ import {
   AlertCircle,
   ArrowLeft,
   ArrowRight,
+  BarChart3,
   CheckCircle2,
   Loader2,
   Play,
@@ -139,24 +140,24 @@ function StrategyContent({ strategy, id }: { strategy: Strategy; id: string }) {
       queryClient.invalidateQueries({ queryKey: ["strategies", id] });
     },
   });
-  const canSimulate = strategy.status === "generated";
-  const canRunAdvisory = strategy.status === "simulated";
-  const canGoToReview = !["draft", "generated", "simulated"].includes(
-    strategy.status,
-  );
-  const configuration = strategy.configuration;
+  const configuration = (strategy.configuration ?? {}) as Record<
+    string,
+    unknown
+  >;
   const expectedImpact = (configuration.expectedImpact ?? {}) as Record<
     string,
     unknown
   >;
   const trigger = (configuration.trigger ?? {}) as Record<string, unknown>;
   const actions = Array.isArray(configuration.actions)
-    ? configuration.actions
+    ? configuration.actions.filter(Boolean)
     : [];
   const assumptions = Array.isArray(configuration.assumptions)
-    ? configuration.assumptions
+    ? configuration.assumptions.filter(Boolean)
     : [];
-  const risks = Array.isArray(configuration.risks) ? configuration.risks : [];
+  const risks = Array.isArray(configuration.risks)
+    ? configuration.risks.filter(Boolean)
+    : [];
   const completedSimulation = simulations.data?.find(
     (item) => item.status === "completed",
   );
@@ -164,313 +165,455 @@ function StrategyContent({ strategy, id }: { strategy: Strategy; id: string }) {
     strategy.status === "simulated"
       ? completedSimulation
       : (simulation.data ?? completedSimulation);
-  const simulationInput = displaySimulation?.input;
   const simulationOutput = displaySimulation?.output;
   const execution = executions.data?.find(
     (item) => item.execution.strategyId === id,
   );
 
+  const opportunityName = strategy.opportunity?.name ?? "Opportunity";
+  const objective = String(configuration.objective ?? "No objective provided.");
+  const targetSegment = String(
+    configuration.targetSegment ?? "No target segment provided.",
+  );
+  const triggerConditions = Array.isArray(trigger.conditions)
+    ? trigger.conditions
+    : [];
+  const revenueRecoveryPct = Number(
+    expectedImpact.revenueRecoveryPercentage ?? 0,
+  );
+  const successLiftPct = Number(expectedImpact.successRateLiftPercentage ?? 0);
+  const estimatedRecovery = money(
+    String(expectedImpact.estimatedRevenueRecovery ?? "0"),
+  );
+  const affectedTransactions =
+    strategy.opportunity?.affectedTransactionCount ?? 0;
+  const affectedValue =
+    strategy.opportunity?.estimatedOpportunityValue ??
+    String(expectedImpact.estimatedRevenueRecovery ?? "0");
+  const confidence = Number(configuration.confidence ?? 0);
+  const primaryActionLabel =
+    strategy.status === "generated" ? "Simulate Impact" : "View Simulation";
+
+  const handlePrimaryAction = () => {
+    if (strategy.status === "generated") {
+      simulation.mutate();
+      return;
+    }
+
+    document.getElementById("simulation")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
+
+  const showSimulation = Boolean(displaySimulation?.output);
+  const reviewEnabled = Boolean(showSimulation && displaySimulation);
+
   return (
-    <>
-      <div className="border-b pb-6">
-        <div className="mb-4">
+    <div className="space-y-8">
+      <header className="border-b pb-6">
+        <div className="mb-4 flex items-center justify-between gap-4">
           <Link
             href={`/opportunities/${strategy.opportunity?.id ?? ""}`}
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to opportunity
           </Link>
-        </div>
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-accent">
-              Strategy review
-            </p>
-            <h1 className="mt-2 text-2xl font-semibold">
-              What does PAYLAB recommend, and what could happen if we apply it?
-            </h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {strategy.opportunity?.name ?? "Opportunity"} · Created{" "}
-              {new Intl.DateTimeFormat("en-IN", {
-                dateStyle: "medium",
-                timeStyle: "short",
-              }).format(new Date(strategy.createdAt))}
-            </p>
-          </div>
           <StatusBadge status={strategy.status} />
         </div>
-      </div>
-      <section className="mt-8">
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold">Strategy</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            The recommendation translated into an actionable plan.
-          </p>
-        </div>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Card heading="Objective">
-            <p className="mt-2 text-sm leading-6">
-              {String(configuration.objective ?? "Not provided")}
+
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">
+              Strategy detail
             </p>
-          </Card>
-          <Card heading="Target Segment">
-            <p className="mt-2 text-sm leading-6">
-              {String(configuration.targetSegment ?? "Not provided")}
-            </p>
-          </Card>
-          <Card heading="Trigger">
-            <p className="mt-2 text-sm">
-              {title(String(trigger.type ?? "Not provided"))}
-            </p>
-            {Array.isArray(trigger.conditions) && (
-              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                {trigger.conditions.map((condition) => (
-                  <li key={String(condition)}>{formatValue("", condition)}</li>
-                ))}
-              </ul>
-            )}
-          </Card>
-          <Card heading="Recommended Actions">
-            <ol className="mt-2 space-y-3 text-sm">
-              {actions.map((action, index) => (
-                <li key={index} className="flex gap-3">
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/10 text-xs font-semibold text-accent">
-                    {index + 1}
-                  </span>
-                  <div>
-                    <p className="font-medium">
-                      {typeof action === "object" &&
-                      action !== null &&
-                      "action" in action
-                        ? title(String(action.action))
-                        : formatValue("", action)}
-                    </p>
-                    {typeof action === "object" &&
-                      action !== null &&
-                      "parameters" in action &&
-                      readableParameters(action.parameters).length > 0 && (
-                        <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                          {readableParameters(action.parameters).map(
-                            ([key, value]) => (
-                              <div
-                                key={key}
-                                className="rounded-md bg-muted/50 px-3 py-2"
-                              >
-                                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                                  {title(key)}
-                                </p>
-                                <p className="mt-1 text-xs font-medium">
-                                  {formatValue(key, value)}
-                                </p>
-                              </div>
-                            ),
-                          )}
-                        </div>
-                      )}
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </Card>{" "}
-          <Card heading="Expected Impact">
-            <p className="mt-2 text-sm">
-              Success-rate improvement:{" "}
-              <strong>
-                {percent(Number(expectedImpact.successRateLiftPercentage))}
-              </strong>
-            </p>
-            <p className="mt-1 text-sm">
-              Revenue recovery:{" "}
-              <strong>
-                {percent(Number(expectedImpact.revenueRecoveryPercentage))}
-              </strong>
-            </p>
-            <p className="mt-1 text-sm">
-              Estimated recovery:{" "}
-              <strong>
-                {money(String(expectedImpact.estimatedRevenueRecovery ?? "0"))}
-              </strong>
-            </p>
-          </Card>
-          <Card heading="Confidence">
-            <p className="mt-2 text-2xl font-semibold">
-              {percent(Number(configuration.confidence))}
-            </p>
-          </Card>
-          <Card heading="Assumptions">
-            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
-              {assumptions.map((item) => (
-                <li key={String(item)}>{String(item)}</li>
-              ))}
-            </ul>
-          </Card>
-          <Card heading="Risks">
-            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
-              {risks.map((item) => (
-                <li key={String(item)}>{String(item)}</li>
-              ))}
-            </ul>
-          </Card>
-          <Card heading="Reasoning">
-            <p className="mt-2 text-sm leading-6">
-              {String(configuration.reasoning ?? "Not provided")}
-            </p>
-          </Card>
-        </div>
-      </section>
-      <section className="mt-8">
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold">Expected Impact</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            What the strategy predicts before a simulation is run.
-          </p>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card heading="Success-rate improvement">
-            <p className="mt-2 text-2xl font-semibold text-accent">
-              {percent(Number(expectedImpact.successRateLiftPercentage))}
-            </p>
-          </Card>
-          <Card heading="Expected revenue recovery">
-            <p className="mt-2 text-2xl font-semibold text-accent">
-              {money(String(expectedImpact.estimatedRevenueRecovery ?? "0"))}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {percent(Number(expectedImpact.revenueRecoveryPercentage))} of
-              affected revenue
-            </p>
-          </Card>
-          <Card heading="Affected transactions">
-            <p className="mt-2 text-2xl font-semibold">
-              {(
-                strategy.opportunity?.affectedTransactionCount ?? 0
-              ).toLocaleString("en-IN")}
-            </p>
-          </Card>
-          <Card heading="Confidence">
-            <p className="mt-2 text-2xl font-semibold">
-              {percent(Number(configuration.confidence))}
-            </p>
-          </Card>
-        </div>
-      </section>
-      <section className="mt-8">
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold">Simulation</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Compare current payment performance with the backend projection.
-          </p>
-        </div>
-        <div className="rounded-lg border bg-card p-5">
-          <p className="mb-6 text-sm text-muted-foreground">
-            PAYLAB generates a recovery assumption automatically for this
-            strategy.
-          </p>
-          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight">
+              {strategy.name}
+            </h1>
+            <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+              <Link
+                href={`/opportunities/${strategy.opportunity?.id ?? ""}`}
+                className="inline-flex items-center rounded-full border bg-background px-2.5 py-1 font-medium text-foreground hover:border-accent/40"
+              >
+                {opportunityName}
+              </Link>
+              <span>•</span>
+              <span>
+                Created{" "}
+                {new Intl.DateTimeFormat("en-IN", {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                }).format(new Date(strategy.createdAt))}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
             <Button
-              onClick={() => simulation.mutate()}
-              disabled={!canSimulate || simulation.isPending}
+              size="lg"
+              onClick={handlePrimaryAction}
+              disabled={strategy.status === "generated" && simulation.isPending}
+              className="bg-accent text-accent-foreground hover:bg-accent/90"
             >
-              {simulation.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              {strategy.status === "generated" && simulation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Running simulation...
+                </>
               ) : (
-                <Play className="mr-2 h-4 w-4" />
+                <>
+                  <Play className="mr-2 h-4 w-4" />
+                  {primaryActionLabel}
+                </>
               )}
-              {simulation.isPending
-                ? "Running simulation..."
-                : "Run Simulation"}
             </Button>
-            <ArrowRight
-              className="h-4 w-4 text-muted-foreground"
-              aria-hidden="true"
-            />
             <Button
-              onClick={() => router.push(`/strategies/${id}/review`)}
-              disabled={!canRunAdvisory}
-            >
-              <Sparkles className="mr-2 h-4 w-4" />
-              Run Advisory Review
-            </Button>
-            <ArrowRight
-              className="h-4 w-4 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <Button
+              size="lg"
               variant="outline"
-              onClick={() => router.push(`/strategies/${id}/review`)}
-              disabled={!canGoToReview}
+              onClick={() => {
+                if (reviewEnabled) {
+                  router.push(`/strategies/${id}/review`);
+                }
+              }}
+              disabled={!reviewEnabled}
             >
-              Go to Review
+              Review & Execute
             </Button>
           </div>
-          {simulation.isError && (
-            <div
-              role="alert"
-              className="mt-4 flex items-center gap-2 text-sm text-destructive"
-            >
-              <AlertCircle className="h-4 w-4" />
-              Unable to run simulation. Please try again.
-            </div>
-          )}
-          {strategy.status !== "simulated" &&
-            simulationOutput &&
-            displaySimulation && (
-              <SimulationComparison simulation={displaySimulation} />
-            )}
+        </div>
+      </header>
+
+      <section className="space-y-4">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Objective
+            </p>
+          </div>
+        </div>
+
+        <p className="max-w-3xl text-base text-muted-foreground">{objective}</p>
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-3">
+        <div className="rounded-2xl border bg-card p-5 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Revenue Recovery
+          </p>
+          <p className="mt-4 text-4xl font-semibold tracking-tight text-foreground">
+            {percent(revenueRecoveryPct)}
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Estimated percentage of the affected payment value this strategy
+            could recover.
+          </p>
+        </div>
+
+        <div className="rounded-2xl border bg-card p-5 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Success Rate Lift
+          </p>
+          <p className="mt-4 text-4xl font-semibold tracking-tight text-foreground">
+            +{percent(successLiftPct)}
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Strategy estimate for the expected improvement in successful payment
+            completion.
+          </p>
+        </div>
+
+        <div className="rounded-2xl border bg-card p-5 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Estimated Revenue Recovery
+          </p>
+          <p className="mt-4 text-4xl font-semibold tracking-tight text-foreground">
+            {estimatedRecovery}
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Estimated upside based on the current affected transaction value.
+          </p>
         </div>
       </section>
-      {strategy.status === "simulated" &&
-        simulationOutput &&
-        displaySimulation && (
-          <section className="mt-8 rounded-lg border border-accent/20 bg-green-200 px-6 p-3">
-            <p className="text-sm font-medium text-muted-foreground">
-              Potential Revenue Recovery
+
+      <div className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr]">
+        <section className="rounded-2xl border bg-card p-6 shadow-sm">
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="text-xl font-semibold">Why this strategy?</h2>
+            <Badge className="bg-violet-50 text-violet-700">
+              Evidence-based
+            </Badge>
+          </div>
+
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            <div className="rounded-xl bg-muted/40 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                Problem detected
+              </p>
+              <p className="mt-2 text-sm font-medium text-foreground">
+                {opportunityName}
+              </p>
+            </div>
+            <div className="rounded-xl bg-muted/40 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                Affected transactions
+              </p>
+              <p className="mt-2 text-sm font-medium text-foreground">
+                {affectedTransactions.toLocaleString("en-IN")}
+              </p>
+            </div>
+            <div className="rounded-xl bg-muted/40 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                Affected payment value
+              </p>
+              <p className="mt-2 text-sm font-medium text-foreground">
+                {money(affectedValue)}
+              </p>
+            </div>
+            <div className="rounded-xl bg-muted/40 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                Confidence
+              </p>
+              <p className="mt-2 text-sm font-medium text-foreground">
+                {percent(confidence)}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5 rounded-xl border border-dashed bg-background/80 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              Detected pattern
             </p>
-            <p className="mt-2 text-3xl font-semibold text-accent">
-              {money(simulationOutput.potentialRevenueRecovery)}
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              {triggerConditions.length > 0
+                ? triggerConditions[0]
+                : "The opportunity was detected from transaction behavior and customer payment flow data."}
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Recovery Rate:{" "}
-              {percent(Number(simulationInput?.recoveryRate ?? 0) * 100)}
-            </p>
-          </section>
-        )}
-      {strategy.status === "simulated" && (
-        <section className="mt-4 rounded-lg border bg-card p-5">
-          <h2 className="text-lg font-semibold">Simulation Comparison</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            This is the completed simulation for the strategy.
-          </p>
-          {simulations.isLoading ? (
-            <div className="mt-5 h-36 animate-pulse rounded-lg bg-muted" />
-          ) : simulations.isError ? (
-            <p className="mt-5 text-sm text-destructive">
-              Unable to load the completed simulation.
-            </p>
-          ) : displaySimulation?.output ? (
-            <SimulationComparison simulation={displaySimulation} />
-          ) : (
-            <p className="mt-5 text-sm text-muted-foreground">
-              No completed simulation output is available.
-            </p>
-          )}
+          </div>
         </section>
-      )}
-      {execution && (
-        <section className="mt-8 rounded-lg border border-accent/20 bg-accent/5 p-6">
-          <h2 className="text-lg font-semibold">Execution Result</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            This strategy has been executed. View its result and audit timeline.
+
+        <section className="rounded-2xl border bg-card p-6 shadow-sm">
+          <h2 className="text-xl font-semibold">Strategy summary</h2>
+          <div className="mt-5 space-y-4 text-sm text-muted-foreground">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                Target segment
+              </p>
+              <p className="mt-2 text-foreground">{targetSegment}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                Trigger type
+              </p>
+              <p className="mt-2 text-foreground">
+                {title(String(trigger.type ?? "Not provided"))}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                Status
+              </p>
+              <p className="mt-2 text-foreground">{title(strategy.status)}</p>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <section className="rounded-2xl border bg-card p-6 shadow-sm">
+          <h2 className="text-xl font-semibold">Recovery plan</h2>
+          <ol className="mt-5 space-y-4">
+            {actions.length > 0 ? (
+              actions.map((action, index) => {
+                const actionObject =
+                  typeof action === "object" && action !== null ? action : null;
+                const actionName =
+                  actionObject && "action" in actionObject
+                    ? String(actionObject.action)
+                    : formatValue("", action);
+                const parameters =
+                  actionObject && "parameters" in actionObject
+                    ? (actionObject.parameters as Record<string, unknown>)
+                    : {};
+
+                return (
+                  <li key={`${actionName}-${index}`} className="flex gap-4">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/10 text-sm font-semibold text-accent">
+                      {index + 1}
+                    </span>
+                    <div className="flex-1 rounded-xl border bg-muted/30 p-4">
+                      <p className="font-semibold text-foreground">
+                        {title(actionName)}
+                      </p>
+                      {parameters && Object.keys(parameters).length > 0 ? (
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                          {Object.entries(parameters).map(([key, value]) => (
+                            <div
+                              key={key}
+                              className="rounded-lg bg-background p-2.5"
+                            >
+                              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                                {title(key)}
+                              </p>
+                              <p className="mt-1 text-sm text-foreground">
+                                {formatValue(key, value)}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="mt-3 text-sm text-muted-foreground">
+                          Apply the recommended recovery action to the affected
+                          payment segment.
+                        </p>
+                      )}
+                    </div>
+                  </li>
+                );
+              })
+            ) : (
+              <li className="rounded-xl border border-dashed bg-muted/30 p-4 text-sm text-muted-foreground">
+                No action steps were returned for this strategy.
+              </li>
+            )}
+          </ol>
+        </section>
+
+        <section className="rounded-2xl border bg-card p-6 shadow-sm">
+          <h2 className="text-xl font-semibold">Trigger & target</h2>
+          <div className="mt-5 space-y-4 text-sm">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                Who/what is targeted
+              </p>
+              <p className="mt-2 text-foreground">{targetSegment}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                When it triggers
+              </p>
+              <p className="mt-2 text-foreground">
+                {title(String(trigger.type ?? "Not provided"))}
+              </p>
+            </div>
+            {triggerConditions.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  Conditions required
+                </p>
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
+                  {triggerConditions.map((condition) => (
+                    <li key={String(condition)}>
+                      {formatValue("", condition)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <section className="rounded-2xl border bg-card p-6 shadow-sm">
+          <h2 className="text-xl font-semibold">Assumptions</h2>
+          <ul className="mt-5 list-disc space-y-2 pl-5 text-sm text-muted-foreground">
+            {assumptions.length > 0 ? (
+              assumptions.map((item) => (
+                <li key={String(item)}>{String(item)}</li>
+              ))
+            ) : (
+              <li>No assumptions were provided for this strategy.</li>
+            )}
+          </ul>
+        </section>
+
+        <section className="rounded-2xl border bg-card p-6 shadow-sm">
+          <h2 className="text-xl font-semibold">Risks</h2>
+          <ul className="mt-5 list-disc space-y-2 pl-5 text-sm text-muted-foreground">
+            {risks.length > 0 ? (
+              risks.map((item) => <li key={String(item)}>{String(item)}</li>)
+            ) : (
+              <li>No material risks were provided for this strategy.</li>
+            )}
+          </ul>
+        </section>
+      </div>
+
+      <section
+        id="simulation"
+        className="rounded-2xl border bg-card p-6 shadow-sm"
+      >
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Simulation
           </p>
-          <Button className="mt-5 bg-black text-white">
+          <h2 className="mt-2 text-xl font-semibold">
+            Expected impact before execution
+          </h2>
+        </div>
+
+        {simulation.isError ? (
+          <div
+            role="alert"
+            className="mt-5 rounded-xl border border-destructive/20 bg-destructive/5 p-4"
+          >
+            <div className="flex items-center gap-2 text-sm font-medium text-destructive">
+              <AlertCircle className="h-4 w-4" />
+              Simulation unavailable
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              We couldn&apos;t calculate the expected impact for this strategy.
+              Please try running the simulation again.
+            </p>
+          </div>
+        ) : showSimulation && displaySimulation ? (
+          <div className="mt-6">
+            <SimulationComparison simulation={displaySimulation} />
+          </div>
+        ) : (
+          <div className="mt-5 rounded-xl border border-dashed bg-muted/30 p-6 text-center">
+            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+              <BarChart3 className="h-5 w-5 text-muted-foreground" />
+            </div>
+
+            <h3 className="mt-3 text-sm font-semibold">
+              No simulation available yet
+            </h3>
+
+            <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
+              Run a simulation to see the estimated financial impact of this
+              strategy before you execute it.
+            </p>
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-2xl border bg-card p-6 shadow-sm">
+        <h2 className="text-xl font-semibold">Reasoning</h2>
+        <p className="mt-4 text-sm leading-7 text-muted-foreground">
+          {String(
+            configuration.reasoning ??
+              "No reasoning was provided for this strategy.",
+          )}
+        </p>
+      </section>
+
+      {execution && (
+        <section className="rounded-2xl border border-accent/20 bg-accent/5 p-6">
+          <h2 className="text-xl font-semibold">Execution status</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            This strategy has moved beyond simulation and a result record
+            exists.
+          </p>
+          <Button className="mt-5 bg-black text-white" asChild>
             <Link href={`/executions/${execution.execution.id}`}>
-              View Execution Result
+              View execution result
             </Link>
           </Button>
         </section>
       )}
-    </>
+    </div>
   );
 }
 
