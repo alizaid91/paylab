@@ -1,18 +1,18 @@
 # PAYLAB
 
-**An AI-powered payment operations and decision-execution platform that turns payment data into explainable, governed, and measurable actions.**
+**An AI-powered payment operations and recovery-campaign platform that turns payment data into explainable, governed, and measurable actions.**
 
 ![PAYLAB platform banner](frontend/public/readme_banner.png)
 
-PAYLAB closes the operational loop from payment data to opportunity detection, strategy generation, simulation, advisory review, policy validation, merchant approval, execution, results, and audit trail. Revenue recovery is the primary use case, but the platform is designed around a broader problem: converting payment operations data into controlled decisions that can be evaluated and acted on.
+PAYLAB closes the operational loop from payment data to opportunity detection, strategy generation, simulation, advisory review, policy validation, merchant approval, recovery campaigns, results, and audit trail. Revenue recovery is the primary use case, but the platform is designed around a broader problem: converting payment operations data into controlled decisions that can be evaluated and acted on.
 
-> **Current scope:** PAYLAB works with seeded or application-managed payment data. Its execution flow is simulated and does not initiate real payment operations.
+> **Current scope:** PAYLAB works with seeded or application-managed payment data. Recovery Campaign processing is simulated and does not initiate real payment operations.
 
 ## What is PAYLAB?
 
 Most payment systems stop at reporting: they show volume, success rates, and failures. PAYLAB is built for the next operational step. It identifies meaningful patterns, turns them into actionable strategies, tests expected impact, reviews risks, applies enforceable controls, and records what happened.
 
-The platform separates analytical evidence, AI-assisted judgment, deterministic governance, and execution state. That makes each proposed action explainable and reviewable rather than an opaque recommendation or an isolated dashboard metric.
+The platform separates analytical evidence, AI-assisted judgment, deterministic governance, and recovery campaign state. That makes each proposed action explainable and reviewable rather than an opaque recommendation or an isolated dashboard metric.
 
 ## Getting started with PAYLAB
 
@@ -27,7 +27,7 @@ New users begin by registering an account. Registration creates the user and the
 
 ## System architecture
 
-PAYLAB is split into a browser-based operations workspace and a workflow-oriented backend. The frontend presents the decision lifecycle; the backend owns merchant scoping, state transitions, persistence, AI orchestration, policy enforcement, execution recording, and auditability.
+PAYLAB is split into a browser-based operations workspace and a workflow-oriented backend. The frontend presents the decision lifecycle; the backend owns merchant scoping, state transitions, persistence, AI orchestration, policy enforcement, Recovery Campaign processing, and auditability.
 
 ```mermaid
 flowchart TB
@@ -38,7 +38,7 @@ flowchart TB
     DETECT[Opportunity detection]
     DECIDE[Strategies and simulations]
     GOVERN[Advisory and policy gates]
-    EXEC[Approval and execution]
+    CAMPAIGN[Approval and Recovery Campaigns]
     AI[Gemini provider<br/>structured JSON]
     DB[(PostgreSQL)]
     ORM[Drizzle ORM and migrations]
@@ -49,12 +49,12 @@ flowchart TB
     API --> DETECT
     API --> DECIDE
     API --> GOVERN
-    API --> EXEC
+    API --> CAMPAIGN
     DATA --> ORM
     DETECT --> ORM
     DECIDE --> ORM
     GOVERN --> ORM
-    EXEC --> ORM
+    CAMPAIGN --> ORM
     ORM --> DB
     DECIDE --> AI
     GOVERN --> AI
@@ -62,7 +62,7 @@ flowchart TB
     DETECT --> DB
     DECIDE --> DB
     GOVERN --> DB
-    EXEC --> DB
+    CAMPAIGN --> DB
 ```
 
 ### Major backend modules
@@ -72,9 +72,9 @@ flowchart TB
 - `payments` — paginated payment records, payment details, statistics.
 - `analytics` — overview, payment-method, failure-dimension, and trend analytics.
 - `opportunities` — deterministic detection, listing, details, and strategy generation entry point.
-- `strategies` — strategy retrieval, simulation, advisory review, approval, and execution orchestration.
+- `strategies` — strategy retrieval, simulation, advisory review, and merchant approval.
 - `policies` — merchant policy configuration and deterministic policy evaluation.
-- `executions` — execution history and details.
+- `recovery-campaigns` — approved strategy campaigns, bounded simulated processing, lifecycle controls, recovery metrics, and campaign state.
 - `audit-logs` — immutable-style workflow event history exposed to the authenticated merchant.
 - `ai` — Gemini provider, structured strategy generation, and advisory validation.
 
@@ -93,7 +93,7 @@ flowchart TB
 │   │   │   ├── analytics/
 │   │   │   ├── audit-logs/
 │   │   │   ├── auth/
-│   │   │   ├── executions/
+│   │   │   ├── recovery-campaigns/
 │   │   │   ├── merchants/
 │   │   │   ├── opportunities/
 │   │   │   ├── payments/
@@ -107,7 +107,7 @@ flowchart TB
 ├── frontend/
 │   ├── src/
 │   │   ├── app/                  # Next.js routes
-│   │   ├── components/           # Dashboard, review, execution, and UI components
+│   │   ├── components/           # Dashboard, review, campaigns, and UI components
 │   │   └── lib/                 # API clients and frontend utilities
 │   ├── .env.example
 │   └── package.json
